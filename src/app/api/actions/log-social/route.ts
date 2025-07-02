@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase, UserDocument, ActionDocument, SquadDocument } from '@/lib/mongodb'; // Kept for direct DB access if needed, though PointsService abstracts some
 import { withAuth } from '@/middleware/authGuard';
-import { withRateLimit } from '@/middleware/rateLimiter';
+import { strictRateLimit } from '@/middleware/rateLimiter';
 // import { randomBytes } from 'crypto'; // Not used here
 // import { Db } from 'mongodb'; // Not directly used here
 import { getPointsService, AwardPointsOptions } from '@/services/points.service';
@@ -27,7 +27,13 @@ const ACTION_COOLDOWNS: Partial<Record<keyof typeof ACTION_TYPE_POINTS, number>>
   shared_on_x: 24 * 60 * 60 * 1000, // 24 hours
 };
 
-const baseHandler = withAuth(async (request: Request, session) => {
+export const POST = withAuth(async (request: Request, session) => {
+  // Apply rate limiting
+  const rateLimitResponse = await strictRateLimit(request as any);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+  
   try {
     const body: RequestBody = await request.json();
     const walletAddress = session.user.walletAddress; // PointsService requires a walletAddress
@@ -123,6 +129,4 @@ const baseHandler = withAuth(async (request: Request, session) => {
     console.error(`Error logging ${actionTypeForLog}:`, error);
     return NextResponse.json({ error: 'Failed to log action' }, { status: 500 });
   }
-});
-
-export const POST = withRateLimit(baseHandler); 
+}); 
