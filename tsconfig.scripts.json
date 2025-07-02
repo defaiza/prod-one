@@ -56,6 +56,8 @@
     "src/workers",
     "src/services/points.service.ts",
     "src/services/redis.service.ts",
+    "src/services/squadTierService.ts",
+    "src/utils/cronLock.ts",
     "src/middleware.ts"
   ]
 } 

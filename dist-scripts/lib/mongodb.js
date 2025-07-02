@@ -10,14 +10,24 @@ if (process.env.NODE_ENV === 'development') {
     // In development mode, use a global variable so that the value
     // is preserved across module reloads caused by HMR (Hot Module Replacement).
     if (!global._mongoClientPromise) {
-        const client = new MongoClient(MONGODB_URI);
+        const client = new MongoClient(MONGODB_URI, {
+            maxPoolSize: 10,
+            minPoolSize: 2,
+            maxIdleTimeMS: 10000,
+            serverSelectionTimeoutMS: 5000,
+        });
         global._mongoClientPromise = client.connect();
     }
     clientPromise = global._mongoClientPromise;
 }
 else {
     // In production mode, it's best to not use a global variable.
-    const client = new MongoClient(MONGODB_URI);
+    const client = new MongoClient(MONGODB_URI, {
+        maxPoolSize: 50,
+        minPoolSize: 10,
+        maxIdleTimeMS: 10000,
+        serverSelectionTimeoutMS: 5000,
+    });
     clientPromise = client.connect();
 }
 export default clientPromise;
@@ -31,7 +41,12 @@ export async function connectToDatabase() {
     if (!MONGODB_DB_NAME) {
         throw new Error('MONGODB_DB_NAME environment variable is not defined');
     }
-    const client = new MongoClient(MONGODB_URI);
+    const client = new MongoClient(MONGODB_URI, {
+        maxPoolSize: 50,
+        minPoolSize: 10,
+        maxIdleTimeMS: 10000,
+        serverSelectionTimeoutMS: 5000,
+    });
     await client.connect();
     const db = client.db(MONGODB_DB_NAME);
     cached.client = client;

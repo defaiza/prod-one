@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase, UserDocument, SquadDocument, ReferralBoost } from '@/lib/mongodb';
 import { withAuth } from '@/middleware/authGuard';
-import { withRateLimit } from '@/middleware/rateLimiter';
+import { strictRateLimit } from '@/middleware/rateLimiter';
 import { getPointsService, AwardPointsOptions } from '@/services/points.service';
 import { AIR } from '@/config/points.config'; // Using AIR for specific point values
 import { rabbitmqService } from '@/services/rabbitmq.service'; // For referral boost event
@@ -18,7 +18,13 @@ const REFERRAL_FRENZY_BOOST_USES = 3;
 const REFERRAL_FRENZY_BOOST_VALUE = 0.5; // 50% bonus
 const REFERRAL_FRENZY_BOOST_TYPE = 'percentage_bonus_referrer';
 
-const baseHandler = withAuth(async (request: Request, session) => {
+export const POST = withAuth(async (request: Request, session) => {
+  // Apply rate limiting
+  const rateLimitResponse = await strictRateLimit(request as any);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+  
   try {
     const walletAddress = session.user.walletAddress;
     const xUserId = session.user.xId;
@@ -111,6 +117,4 @@ const baseHandler = withAuth(async (request: Request, session) => {
     console.error('Error logging profile share:', error);
     return NextResponse.json({ error: 'Failed to log profile share action' }, { status: 500 });
   }
-});
-
-export const POST = withRateLimit(baseHandler); 
+}); 
