@@ -1,24 +1,42 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, UserDocument, ActionDocument, ReferralBoost, SquadDocument } from '@/lib/mongodb';
-// import { randomBytes } from 'crypto'; // Not needed here if new users are created with codes elsewhere
 import { rabbitmqService } from '@/services/rabbitmq.service';
 import { rabbitmqConfig } from '@/config/rabbitmq.config';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { strictRateLimit } from '@/middleware/rateLimiter';
 
 interface RequestBody {
   newWalletAddress: string;
   referralCode: string;
 }
 
-const POINTS_REFERRAL_BONUS_FOR_REFERRER = 20; // Using the value from your instructions
-// const POINTS_FOR_BEING_REFERRED = 10; // Optional: Points for the new user, if you decide to implement
+const POINTS_REFERRAL_BONUS_FOR_REFERRER = 20;
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Apply strict rate limiting
+  const rateLimitResponse = await strictRateLimit(request);
+  if (rateLimitResponse) {
+    return rateLimitResponse;
+  }
+
+  // Require authentication
+  const session = await getServerSession(authOptions) as any;
+  if (!session?.user?.walletAddress) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
   try {
     const body: RequestBody = await request.json();
     const { newWalletAddress, referralCode } = body;
 
     if (!newWalletAddress || !referralCode) {
       return NextResponse.json({ error: 'New wallet address and referral code are required' }, { status: 400 });
+    }
+
+    // Ensure the authenticated user is registering their own wallet
+    if (session.user.walletAddress !== newWalletAddress) {
+      console.warn(`[Referral Register] User ${session.user.walletAddress} attempting to register different wallet ${newWalletAddress}`);
+      return NextResponse.json({ error: 'You can only register your own wallet address' }, { status: 403 });
     }
 
     const { db } = await connectToDatabase();

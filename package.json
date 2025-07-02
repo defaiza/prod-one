@@ -23,7 +23,11 @@
     "generate:proposal-slugs": "node --loader ts-node/esm scripts/generateProposalSlugs.ts",
     "cron:run:proposals:compiled": "node dist-scripts/scripts/cron/processProposals.js",
     "cron:run:proposals": "yarn build:scripts && yarn cron:run:proposals:compiled",
-    "cron:ts:proposals": "npx ts-node --project tsconfig.json -r tsconfig-paths/register --esm src/scripts/cron/processProposals.ts"
+    "cron:ts:proposals": "npx ts-node --project tsconfig.json -r tsconfig-paths/register --esm src/scripts/cron/processProposals.ts",
+    "mongodb:add-indexes": "yarn build:scripts && node dist-scripts/scripts/addCriticalIndexes.js",
+    "mongodb:monitor": "yarn build:scripts && node dist-scripts/scripts/monitorMongoUsage.js",
+    "mongodb:check-suspicious": "yarn build:scripts && node dist-scripts/scripts/checkSuspiciousActivity.js",
+    "dev:scheduler-optimized": "nodemon src/scheduler-optimized.js"
   },
   "dependencies": {
     "@crossmint/client-sdk-react-ui": "^1.19.21",

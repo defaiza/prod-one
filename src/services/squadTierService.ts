@@ -1,4 +1,4 @@
-import { connectToDatabase, SquadDocument } from '@/lib/mongodb';
+import { connectToDatabase, SquadDocument } from '../lib/mongodb';
 import { Collection } from 'mongodb';
 
 // Get tier requirements from environment variables
