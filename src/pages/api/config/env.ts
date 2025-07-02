@@ -180,10 +180,25 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Content-Security-Policy', "default-src 'none'");
     
-    // OWASP: CORS headers
-    if (origin && origin !== 'unknown') {
+    // OWASP: CORS headers with proper origin validation
+    const allowedOrigins = [
+      process.env.NEXT_PUBLIC_APP_URL || '',
+      'http://localhost:3000',
+      'http://127.0.0.1:3000'
+    ].filter(Boolean);
+    
+    // Only allow whitelisted origins
+    if (origin && origin !== 'unknown' && allowedOrigins.includes(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else if (process.env.NODE_ENV === 'production') {
+      // In production, only allow the configured app URL
+      const productionOrigin = process.env.NEXT_PUBLIC_APP_URL;
+      if (productionOrigin) {
+        res.setHeader('Access-Control-Allow-Origin', productionOrigin);
+      }
     }
+    
     res.setHeader('Access-Control-Allow-Methods', 'GET');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Access-Control-Max-Age', '300');
