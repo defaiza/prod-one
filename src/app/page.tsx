@@ -28,6 +28,7 @@ import { AIR } from '@/config/points.config'; // Import AIR config
 import { formatPoints, generateReferralLink, getBaseUrl } from '@/lib/utils'; // Import formatPoints and referral utilities
 import AirdropSnapshotHorizontal from "@/components/dashboard/AirdropSnapshotHorizontal";
 import DashboardActionRow from "@/components/layout/DashboardActionRow";
+import { getRandomShareCopy, formatAirdropShareText } from '@/utils/shareVariations';
 import MiniSquadCard from "@/components/dashboard/MiniSquadCard";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import TopProposalCard from "@/components/dashboard/TopProposalCard";
@@ -269,7 +270,16 @@ export default function HomePage() {
     const siteBaseUrl = getBaseUrl();
     const twitterHandle = "DeFAIRewards";
     const shareUrl = userData?.referralCode ? generateReferralLink(userData.referralCode) : generateReferralLink('d93263c7');
-    const text = `I'm getting ${airdropAmountStr} $DEFAI from @${twitterHandle} in the migration! 🚀 My referral link: ${shareUrl} \nGet ready for DEFAI SUMMER - buy $DeFAI now! #DeFAIRewards #TGE #AI #Solana`;
+    
+    // Get random share copy
+    const shareCopy = getRandomShareCopy();
+    const text = formatAirdropShareText(
+      shareCopy.airdropTemplate,
+      airdropAmountStr,
+      twitterHandle,
+      shareUrl
+    );
+    
     const hashtags = "DeFAIRewards,TGE,AI,Solana";
     const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&hashtags=${encodeURIComponent(hashtags)}&via=${twitterHandle}`;
     window.open(twitterIntentUrl, '_blank');

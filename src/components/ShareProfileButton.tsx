@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { toast } from 'sonner';
+import { getRandomShareCopy, formatProfileShareText } from '@/utils/shareVariations';
 
 interface ShareProfileButtonProps {
   walletAddress: string;
@@ -21,8 +22,6 @@ const ShareProfileButton: React.FC<ShareProfileButtonProps> = ({
   const profileUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}/profile/${walletAddress}`
     : `/profile/${walletAddress}`;
-    
-  const shareText = `Check out my DeFAI Rewards profile! ${username ? `@${username}` : ''} | ${points.toLocaleString()} points${airdropTier ? ` | ${airdropTier} tier` : ''} | @DeFAIRewards`;
   
   const handleCopyLink = () => {
     navigator.clipboard.writeText(profileUrl).then(() => {
@@ -34,12 +33,32 @@ const ShareProfileButton: React.FC<ShareProfileButtonProps> = ({
   };
   
   const shareToTwitter = () => {
+    // Get random share copy
+    const shareCopy = getRandomShareCopy();
+    const shareText = formatProfileShareText(
+      shareCopy.profileTemplate,
+      username ? `@${username}` : '',
+      points.toLocaleString(),
+      airdropTier ? ` | ${airdropTier} tier` : '',
+      'DeFAIRewards'
+    );
+    
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(profileUrl)}`;
     window.open(twitterUrl, '_blank');
     setIsOpen(false);
   };
   
   const shareToTelegram = () => {
+    // Get random share copy for Telegram too
+    const shareCopy = getRandomShareCopy();
+    const shareText = formatProfileShareText(
+      shareCopy.profileTemplate,
+      username ? `@${username}` : '',
+      points.toLocaleString(),
+      airdropTier ? ` | ${airdropTier} tier` : '',
+      'DeFAIRewards'
+    );
+    
     const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(profileUrl)}&text=${encodeURIComponent(shareText)}`;
     window.open(telegramUrl, '_blank');
     setIsOpen(false);
