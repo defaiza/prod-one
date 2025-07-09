@@ -12,7 +12,7 @@ export default function SettingsPage() {
     <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground">
       <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-xl">
         <div className="text-center">
-          <h1 className="text-3xl font-orbitron font-bold text-primary">Settings</h1>
+          <h1 className="text-3xl font-bold text-defai-purple">Settings</h1>
           <p className="mt-2 text-muted-foreground">Manage your account and connected services.</p>
         </div>
 
@@ -28,7 +28,7 @@ export default function SettingsPage() {
             {status === "authenticated" && session?.user?.email ? (
               <div>
                 <p className="text-sm text-muted-foreground mb-2">You are connected with Crossmint using:</p>
-                <p className="font-medium text-primary">{session.user.email}</p>
+                <p className="font-medium text-defai-purple">{session.user.email}</p>
                 {/* Optionally, add a disconnect button here if your Crossmint setup allows it */}
               </div>
             ) : (

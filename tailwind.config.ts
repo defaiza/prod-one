@@ -42,7 +42,7 @@ const config: Config = {
 				DEFAULT: 'hsl(var(--popover))',
 				foreground: 'hsl(var(--popover-foreground))'
 			},
-			primary: '#2563EB',
+			primary: '#c061ff',
 			secondary: {
 				DEFAULT: 'hsl(var(--secondary))',
 				foreground: 'hsl(var(--secondary-foreground))'
@@ -103,7 +103,7 @@ const config: Config = {
   			},
   		},
   		boxShadow: {
-  			'glow': '0 0 15px rgba(37, 99, 235, 0.5)',
+  			'glow': '0 0 15px rgba(192, 97, 255, 0.5)',
   		},
   		screens: {
   			'3xl': '1920px',

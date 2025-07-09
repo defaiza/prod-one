@@ -464,7 +464,7 @@ export default function HomePage() {
 
   if (authStatus === "loading") {
     console.log("[HomePage] Rendering: Loading Session state");
-    return <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground"><p className="font-orbitron text-xl">Loading Session...</p></main>;
+    return <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground"><p className="text-xl">Loading Session...</p></main>;
   }
 
   if (authStatus !== "authenticated") {
@@ -484,7 +484,7 @@ export default function HomePage() {
         {/* Right login panel */}
         <div className="flex flex-col justify-center items-center lg:w-1/2 w-full bg-gradient-to-b from-black to-[#111] text-white px-8 py-12 space-y-8">
           <DeFAILogo className="h-16 w-16" />
-          <h1 className="text-4xl md:text-5xl font-orbitron font-bold text-center">Welcome to DEFAI Rewards</h1>
+          <h1 className="text-4xl md:text-5xl font-bold text-center">Welcome to DEFAI Rewards</h1>
           <p className="text-base md:text-lg text-center max-w-sm">Connect your wallet to start earning rewards.</p>
           <div className="flex flex-col gap-4 w-full max-w-xs items-center">
             <WalletMultiButtonDynamic />
@@ -499,10 +499,10 @@ export default function HomePage() {
     return (
       <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground text-center">
         <DeFAILogo className="h-20 w-20 mb-6" />
-        <h1 className="text-3xl font-bold text-primary mb-4 font-orbitron">Almost There!</h1>
+        <h1 className="text-3xl font-bold text-defai-purple mb-4">Almost There!</h1>
         <p className="text-lg mb-6">Your X account is authenticated. Now, please connect your wallet to activate your DEFAI Rewards account.</p>
         <p className="text-sm text-muted-foreground">The Connect Wallet button is in the header.</p>
-        {wallet.connecting && <p className="text-primary mt-4">Connecting to wallet...</p>}
+        {wallet.connecting && <p className="text-defai-purple mt-4">Connecting to wallet...</p>}
       </main>
     );
   }
@@ -527,10 +527,10 @@ export default function HomePage() {
                   <div className="flex items-center align-left gap-3">
                     <div className="relative">
                       <div className="text-center">
-                        <h1 className="font-orbitron text-5xl sm:text-6xl font-bold text-[#2563EB]">
+                        <h1 className="text-5xl sm:text-6xl font-bold text-defai-purple">
                           Banking AI Agents
                         </h1>
-                        <h2 className="font-orbitron text-5xl sm:text-6xl font-bold text-black">
+                        <h2 className="text-5xl sm:text-6xl font-bold text-black">
                           Rewarding Humans
                         </h2>
                       </div>
@@ -745,10 +745,10 @@ export default function HomePage() {
             {/* Illustration and Headlines for Mobile (can be simpler or same as desktop) */}
             <div className="relative text-center mt-4 mb-6">
               <div className="text-center mb-6 mt-4">
-                <h1 className="relative z-10 font-orbitron text-4xl font-bold text-[#2563EB]">
+                <h1 className="relative z-10 text-4xl font-bold text-defai-purple">
                   Banking AI Agents
                 </h1>
-                <h2 className="relative z-10 font-orbitron text-4xl font-bold text-black">
+                <h2 className="relative z-10 text-4xl font-bold text-black">
                   Rewarding Humans
                 </h2>
               </div>
