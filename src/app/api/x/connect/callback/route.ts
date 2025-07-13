@@ -10,6 +10,28 @@ const X_CLIENT_ID = process.env.X_CLIENT_ID;
 const X_CLIENT_SECRET = process.env.X_CLIENT_SECRET;
 const X_CALLBACK_URL = process.env.X_CALLBACK_URL;
 
+// Helper function to determine if this is a JSON request
+function isJsonRequest(req: NextRequest): boolean {
+  const accept = req.headers.get('accept') || '';
+  const contentType = req.headers.get('content-type') || '';
+  return accept.includes('application/json') || contentType.includes('application/json') || 
+         req.url.includes('/_next/data/') || req.url.includes('.json');
+}
+
+// Helper function to create response based on request type
+function createResponse(req: NextRequest, redirectUrl: string, error?: string) {
+  if (isJsonRequest(req)) {
+    // Return JSON response for Next.js router
+    if (error) {
+      return NextResponse.json({ error }, { status: 500 });
+    }
+    return NextResponse.json({ redirect: redirectUrl });
+  } else {
+    // Return redirect for regular browser navigation
+    return NextResponse.redirect(new URL(redirectUrl, req.nextUrl.origin));
+  }
+}
+
 export async function GET(req: NextRequest) {
   console.log('[X Connect Callback] Callback endpoint called');
   
@@ -27,7 +49,7 @@ export async function GET(req: NextRequest) {
       X_CLIENT_SECRET: !!X_CLIENT_SECRET,
       X_CALLBACK_URL: !!X_CALLBACK_URL
     });
-    return NextResponse.redirect(new URL('/profile?x_connect_error=config', req.nextUrl.origin));
+    return createResponse(req, '/profile?x_connect_error=config', 'Missing X OAuth configuration');
   }
 
   // Get session
@@ -41,12 +63,12 @@ export async function GET(req: NextRequest) {
     });
   } catch (sessionError) {
     console.error('[X Connect Callback] Session error:', sessionError);
-    return NextResponse.redirect(new URL('/profile?x_connect_error=session_error', req.nextUrl.origin));
+    return createResponse(req, '/profile?x_connect_error=session_error', 'Session error');
   }
 
   if (!session || !session.user || !session.user.dbId) {
     console.error('[X Connect Callback] User not authenticated or dbId missing');
-    return NextResponse.redirect(new URL('/profile?x_connect_error=auth', req.nextUrl.origin));
+    return createResponse(req, '/profile?x_connect_error=auth', 'User not authenticated');
   }
 
   // Get cookies
@@ -66,12 +88,12 @@ export async function GET(req: NextRequest) {
     cookieStore.delete('x_pkce_code_verifier');
   } catch (cookieError) {
     console.error('[X Connect Callback] Cookie error:', cookieError);
-    return NextResponse.redirect(new URL('/profile?x_connect_error=cookie_error', req.nextUrl.origin));
+    return createResponse(req, '/profile?x_connect_error=cookie_error', 'Cookie error');
   }
 
   if (!storedState || !codeVerifier) {
     console.error('[X Connect Callback] OAuth state or PKCE verifier missing from cookies');
-    return NextResponse.redirect(new URL('/profile?x_connect_error=missing_params', req.nextUrl.origin));
+    return createResponse(req, '/profile?x_connect_error=missing_params', 'Missing OAuth parameters');
   }
 
   // Parse URL parameters
@@ -89,12 +111,12 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     console.error(`[X Connect Callback] Error from X: ${error} - ${url.searchParams.get('error_description')}`);
-    return NextResponse.redirect(new URL(`/profile?x_connect_error=${error}`, req.nextUrl.origin));
+    return createResponse(req, `/profile?x_connect_error=${error}`, `X OAuth error: ${error}`);
   }
 
   if (!code) {
     console.error('[X Connect Callback] Authorization code missing from X callback');
-    return NextResponse.redirect(new URL('/profile?x_connect_error=no_code', req.nextUrl.origin));
+    return createResponse(req, '/profile?x_connect_error=no_code', 'No authorization code');
   }
 
   if (receivedState !== storedState) {
@@ -102,7 +124,7 @@ export async function GET(req: NextRequest) {
       received: receivedState,
       stored: storedState
     });
-    return NextResponse.redirect(new URL('/profile?x_connect_error=state_mismatch', req.nextUrl.origin));
+    return createResponse(req, '/profile?x_connect_error=state_mismatch', 'State mismatch');
   }
 
   try {
@@ -242,7 +264,7 @@ export async function GET(req: NextRequest) {
     console.log(`[X Connect Callback] Successfully linked X account @${xUserProfile.username} for user ${session.user.dbId}`);
     
     // Redirect to profile with success message
-    return NextResponse.redirect(new URL('/profile?x_connect_success=true', req.nextUrl.origin));
+    return createResponse(req, '/profile?x_connect_success=true');
 
   } catch (error: any) {
     console.error('[X Connect Callback] Error during callback processing:', {
@@ -252,6 +274,6 @@ export async function GET(req: NextRequest) {
     
     // Clean up URL for error message
     const errorMessage = encodeURIComponent(error.message.replace(/[^a-zA-Z0-9\s]/g, '').substring(0, 50));
-    return NextResponse.redirect(new URL(`/profile?x_connect_error=${errorMessage}`, req.nextUrl.origin));
+    return createResponse(req, `/profile?x_connect_error=${errorMessage}`, error.message);
   }
 }

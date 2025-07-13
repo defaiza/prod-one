@@ -50,7 +50,8 @@ export async function GET(req: NextRequest) {
       maxAge: 15 * 60, // 15 minutes in seconds
     };
     
-    // In production, ensure cookies work across subdomains if needed
+    // In production, if COOKIE_DOMAIN is set, use it
+    // This helps with subdomain issues
     if (process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN) {
       cookieOptions.domain = process.env.COOKIE_DOMAIN;
     }
@@ -58,7 +59,9 @@ export async function GET(req: NextRequest) {
     console.log('[X Connect Initiate] Setting cookies with options:', {
       ...cookieOptions,
       state: state.substring(0, 8) + '...',
-      verifier: codeVerifier.substring(0, 8) + '...'
+      verifier: codeVerifier.substring(0, 8) + '...',
+      environment: process.env.NODE_ENV,
+      cookieDomain: process.env.COOKIE_DOMAIN || 'not set'
     });
     
     cookieStore.set('x_oauth_state', state, cookieOptions);
@@ -73,6 +76,12 @@ export async function GET(req: NextRequest) {
     authUrl.searchParams.set('state', state);
     authUrl.searchParams.set('code_challenge', codeChallenge);
     authUrl.searchParams.set('code_challenge_method', 'S256');
+
+    console.log('[X Connect Initiate] Generated auth URL:', {
+      redirectUri: X_CALLBACK_URL,
+      scopes: scopes.join(', '),
+      statePrefix: state.substring(0, 8) + '...'
+    });
 
     return NextResponse.json({ authorizationUrl: authUrl.toString() });
 
