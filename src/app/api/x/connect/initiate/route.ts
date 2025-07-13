@@ -42,13 +42,25 @@ export async function GET(req: NextRequest) {
     // Store state and code_verifier in httpOnly, secure cookies
     // These cookies will be sent back by the browser during the callback
     const cookieStore = cookies();
-    const cookieOptions = {
+    const cookieOptions: any = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      path: '/', // Or scope to /api/x/connect/callback if preferred
+      path: '/',
       sameSite: 'lax' as const,
       maxAge: 15 * 60, // 15 minutes in seconds
     };
+    
+    // In production, ensure cookies work across subdomains if needed
+    if (process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN) {
+      cookieOptions.domain = process.env.COOKIE_DOMAIN;
+    }
+    
+    console.log('[X Connect Initiate] Setting cookies with options:', {
+      ...cookieOptions,
+      state: state.substring(0, 8) + '...',
+      verifier: codeVerifier.substring(0, 8) + '...'
+    });
+    
     cookieStore.set('x_oauth_state', state, cookieOptions);
     cookieStore.set('x_pkce_code_verifier', codeVerifier, cookieOptions);
 

@@ -11,35 +11,81 @@ const X_CLIENT_SECRET = process.env.X_CLIENT_SECRET;
 const X_CALLBACK_URL = process.env.X_CALLBACK_URL;
 
 export async function GET(req: NextRequest) {
+  console.log('[X Connect Callback] Callback endpoint called');
+  
+  // Log environment variable status (without exposing secrets)
+  console.log('[X Connect Callback] Environment check:', {
+    hasClientId: !!X_CLIENT_ID,
+    hasClientSecret: !!X_CLIENT_SECRET,
+    hasCallbackUrl: !!X_CALLBACK_URL,
+    callbackUrl: X_CALLBACK_URL // This is safe to log
+  });
+
   if (!X_CLIENT_ID || !X_CLIENT_SECRET || !X_CALLBACK_URL) {
-    console.error('[X Connect Callback] X OAuth environment variables not configured.');
-    // Redirect to an error page on the frontend
+    console.error('[X Connect Callback] Missing environment variables:', {
+      X_CLIENT_ID: !!X_CLIENT_ID,
+      X_CLIENT_SECRET: !!X_CLIENT_SECRET,
+      X_CALLBACK_URL: !!X_CALLBACK_URL
+    });
     return NextResponse.redirect(new URL('/profile?x_connect_error=config', req.nextUrl.origin));
   }
 
-  const session = await getServerSession(authOptions);
+  // Get session
+  let session;
+  try {
+    session = await getServerSession(authOptions);
+    console.log('[X Connect Callback] Session status:', {
+      hasSession: !!session,
+      hasUser: !!session?.user,
+      hasDbId: !!session?.user?.dbId
+    });
+  } catch (sessionError) {
+    console.error('[X Connect Callback] Session error:', sessionError);
+    return NextResponse.redirect(new URL('/profile?x_connect_error=session_error', req.nextUrl.origin));
+  }
+
   if (!session || !session.user || !session.user.dbId) {
-    console.error('[X Connect Callback] User not authenticated or dbId missing.');
+    console.error('[X Connect Callback] User not authenticated or dbId missing');
     return NextResponse.redirect(new URL('/profile?x_connect_error=auth', req.nextUrl.origin));
   }
 
-  const cookieStore = cookies();
-  const storedState = cookieStore.get('x_oauth_state')?.value;
-  const codeVerifier = cookieStore.get('x_pkce_code_verifier')?.value;
+  // Get cookies
+  let storedState, codeVerifier;
+  try {
+    const cookieStore = cookies();
+    storedState = cookieStore.get('x_oauth_state')?.value;
+    codeVerifier = cookieStore.get('x_pkce_code_verifier')?.value;
+    
+    console.log('[X Connect Callback] Cookie status:', {
+      hasState: !!storedState,
+      hasVerifier: !!codeVerifier
+    });
 
-  // Clear cookies immediately after retrieving them
-  cookieStore.delete('x_oauth_state');
-  cookieStore.delete('x_pkce_code_verifier');
+    // Clear cookies immediately after retrieving them
+    cookieStore.delete('x_oauth_state');
+    cookieStore.delete('x_pkce_code_verifier');
+  } catch (cookieError) {
+    console.error('[X Connect Callback] Cookie error:', cookieError);
+    return NextResponse.redirect(new URL('/profile?x_connect_error=cookie_error', req.nextUrl.origin));
+  }
 
   if (!storedState || !codeVerifier) {
-    console.error('[X Connect Callback] OAuth state or PKCE verifier missing from cookies.');
+    console.error('[X Connect Callback] OAuth state or PKCE verifier missing from cookies');
     return NextResponse.redirect(new URL('/profile?x_connect_error=missing_params', req.nextUrl.origin));
   }
 
+  // Parse URL parameters
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
   const receivedState = url.searchParams.get('state');
   const error = url.searchParams.get('error');
+
+  console.log('[X Connect Callback] URL parameters:', {
+    hasCode: !!code,
+    hasState: !!receivedState,
+    hasError: !!error,
+    error: error
+  });
 
   if (error) {
     console.error(`[X Connect Callback] Error from X: ${error} - ${url.searchParams.get('error_description')}`);
@@ -47,103 +93,165 @@ export async function GET(req: NextRequest) {
   }
 
   if (!code) {
-    console.error('[X Connect Callback] Authorization code missing from X callback.');
+    console.error('[X Connect Callback] Authorization code missing from X callback');
     return NextResponse.redirect(new URL('/profile?x_connect_error=no_code', req.nextUrl.origin));
   }
 
   if (receivedState !== storedState) {
-    console.error('[X Connect Callback] Invalid OAuth state. Potential CSRF attack.');
+    console.error('[X Connect Callback] State mismatch:', {
+      received: receivedState,
+      stored: storedState
+    });
     return NextResponse.redirect(new URL('/profile?x_connect_error=state_mismatch', req.nextUrl.origin));
   }
 
   try {
     // 1. Exchange authorization code for tokens
+    console.log('[X Connect Callback] Exchanging code for tokens...');
+    
+    const tokenBody = new URLSearchParams({
+      code: code,
+      grant_type: 'authorization_code',
+      client_id: X_CLIENT_ID,
+      redirect_uri: X_CALLBACK_URL,
+      code_verifier: codeVerifier,
+    });
+
+    console.log('[X Connect Callback] Token request params:', {
+      redirect_uri: X_CALLBACK_URL,
+      grant_type: 'authorization_code',
+      hasCode: !!code,
+      hasVerifier: !!codeVerifier
+    });
+
     const tokenResponse = await fetch('https://api.twitter.com/2/oauth2/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Authorization': `Basic ${Buffer.from(`${X_CLIENT_ID}:${X_CLIENT_SECRET}`).toString('base64')}`,
       },
-      body: new URLSearchParams({
-        code: code,
-        grant_type: 'authorization_code',
-        client_id: X_CLIENT_ID,
-        redirect_uri: X_CALLBACK_URL,
-        code_verifier: codeVerifier,
-      }),
+      body: tokenBody,
     });
 
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json();
-      console.error('[X Connect Callback] Failed to exchange X auth code for token:', errorData);
-      throw new Error(errorData.error_description || errorData.error || 'Failed to get X token');
+      const errorText = await tokenResponse.text();
+      console.error('[X Connect Callback] Token exchange failed:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        error: errorText
+      });
+      
+      // Try to parse as JSON if possible
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.error_description || errorData.error || 'Failed to get X token');
+      } catch {
+        throw new Error(`Token exchange failed: ${tokenResponse.status} ${errorText}`);
+      }
     }
 
     const tokens = await tokenResponse.json();
     const accessToken = tokens.access_token;
-    const refreshToken = tokens.refresh_token; // Should now be present with offline.access scope
-    const scopes = tokens.scope.split(' '); // Scopes granted
+    const refreshToken = tokens.refresh_token;
+    const scopes = tokens.scope ? tokens.scope.split(' ') : [];
     
-    console.log(`[X Connect Callback] Token exchange successful. Scopes: ${scopes.join(', ')}, Has refresh token: ${!!refreshToken}`);
+    console.log('[X Connect Callback] Token exchange successful:', {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+      scopes: scopes.join(', ')
+    });
 
-    // 2. Fetch X user profile data (/2/users/me)
-    const userProfileResponse = await fetch('https://api.twitter.com/2/users/me', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      // Specify user fields to retrieve, e.g., id, username, profile_image_url
-      // The URL should be like: https://api.twitter.com/2/users/me?user.fields=profile_image_url,created_at
-    }); // Note: X API requires query params for user fields. Corrected below.
+    if (!accessToken) {
+      throw new Error('No access token received from X');
+    }
+
+    // 2. Fetch X user profile data
+    console.log('[X Connect Callback] Fetching user profile...');
     
     const userProfileUrl = new URL('https://api.twitter.com/2/users/me');
     userProfileUrl.searchParams.set('user.fields', 'id,username,profile_image_url');
 
-    const userProfileResponseCorrected = await fetch(userProfileUrl.toString(), {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
+    const userProfileResponse = await fetch(userProfileUrl.toString(), {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
     });
 
-    if (!userProfileResponseCorrected.ok) {
-      const errorData = await userProfileResponseCorrected.json();
-      console.error('[X Connect Callback] Failed to fetch X user profile:', errorData);
-      throw new Error('Failed to fetch X user profile');
+    if (!userProfileResponse.ok) {
+      const errorText = await userProfileResponse.text();
+      console.error('[X Connect Callback] User profile fetch failed:', {
+        status: userProfileResponse.status,
+        statusText: userProfileResponse.statusText,
+        error: errorText
+      });
+      throw new Error(`Failed to fetch X user profile: ${userProfileResponse.status}`);
     }
-    const xUserProfile = (await userProfileResponseCorrected.json()).data;
 
-    // console.log("[X Callback DEBUG] xUserProfile fetched:", JSON.stringify(xUserProfile, null, 2)); // Commented out
-    // console.log("[X Callback DEBUG] Storing linkedXProfileImageUrl:", xUserProfile.profile_image_url); // Commented out
+    const userProfileData = await userProfileResponse.json();
+    const xUserProfile = userProfileData.data;
+
+    if (!xUserProfile || !xUserProfile.id) {
+      console.error('[X Connect Callback] Invalid user profile data:', userProfileData);
+      throw new Error('Invalid user profile data received from X');
+    }
+
+    console.log('[X Connect Callback] User profile fetched:', {
+      id: xUserProfile.id,
+      username: xUserProfile.username,
+      hasProfileImage: !!xUserProfile.profile_image_url
+    });
 
     // 3. Update user document in DB
-    const { db } = await connectToDatabase();
-    const usersCollection = db.collection<UserDocument>('users');
+    console.log('[X Connect Callback] Updating database...');
     
+    let db, usersCollection;
+    try {
+      const connection = await connectToDatabase();
+      db = connection.db;
+      usersCollection = db.collection<UserDocument>('users');
+    } catch (dbError) {
+      console.error('[X Connect Callback] Database connection error:', dbError);
+      throw new Error('Database connection failed');
+    }
+    
+    const updateData: any = {
+      linkedXId: xUserProfile.id,
+      linkedXUsername: xUserProfile.username,
+      linkedXProfileImageUrl: xUserProfile.profile_image_url,
+      linkedXAccessToken: encrypt(accessToken),
+      linkedXScopes: scopes,
+      linkedXConnectedAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Only set refresh token if it exists
+    if (refreshToken) {
+      updateData.linkedXRefreshToken = encrypt(refreshToken);
+    }
+
     const updateResult = await usersCollection.updateOne(
       { _id: new ObjectId(session.user.dbId) },
-      {
-        $set: {
-          linkedXId: xUserProfile.id,
-          linkedXUsername: xUserProfile.username,
-          linkedXProfileImageUrl: xUserProfile.profile_image_url,
-          linkedXAccessToken: encrypt(accessToken),
-          linkedXRefreshToken: refreshToken ? encrypt(refreshToken) : undefined, // Encrypt if present
-          linkedXScopes: scopes,
-          linkedXConnectedAt: new Date(),
-          updatedAt: new Date(),
-        },
-      }
+      { $set: updateData }
     );
 
     if (updateResult.matchedCount === 0) {
-        console.error('[X Connect Callback] User not found in DB during update. dbId:', session.user.dbId);
-        throw new Error('User not found for updating X details.');
+      console.error('[X Connect Callback] User not found in DB:', session.user.dbId);
+      throw new Error('User not found for updating X details');
     }
 
-    console.log(`[X Connect Callback] Successfully linked X account ${xUserProfile.username} for user ${session.user.dbId}`);
+    console.log(`[X Connect Callback] Successfully linked X account @${xUserProfile.username} for user ${session.user.dbId}`);
+    
+    // Redirect to profile with success message
     return NextResponse.redirect(new URL('/profile?x_connect_success=true', req.nextUrl.origin));
 
   } catch (error: any) {
-    console.error('[X Connect Callback] General error:', error);
-    return NextResponse.redirect(new URL(`/profile?x_connect_error=${error.message || 'unknown'}`, req.nextUrl.origin));
+    console.error('[X Connect Callback] Error during callback processing:', {
+      error: error.message,
+      stack: error.stack
+    });
+    
+    // Clean up URL for error message
+    const errorMessage = encodeURIComponent(error.message.replace(/[^a-zA-Z0-9\s]/g, '').substring(0, 50));
+    return NextResponse.redirect(new URL(`/profile?x_connect_error=${errorMessage}`, req.nextUrl.origin));
   }
-} 
+}
