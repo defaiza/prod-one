@@ -15,9 +15,9 @@ import * as path from 'path';
 const SOLANA_CLUSTER_URL = clusterApiUrl('devnet');
 const ADMIN_KEYPAIR_PATH = path.join(__dirname, '..', '_keypairs', 'admin-keypair.json'); // Path to your admin/authority keypair
 
-// These should be set via environment variables
-const HYBRID_COLLECTION_MINT_PDA = process.env.HYBRID_COLLECTION_MINT_PDA || ''; 
-const DEFAI_SPL_TOKEN_MINT = process.env.DEFAI_SPL_TOKEN_MINT || '';
+// These MUST be replaced with your actual deployed addresses
+const HYBRID_COLLECTION_MINT_PDA = 'YOUR_COLLECTION_MINT_PDA_ADDRESS_HERE'; 
+const DEFAI_SPL_TOKEN_MINT = 'YOUR_DEFAI_SPL_TOKEN_MINT_ADDRESS_HERE';
 
 // --- Helper to load Web3.js keypair ---
 function loadWeb3Keypair(pathToKeypairFile: string): Web3Keypair {
@@ -56,12 +56,12 @@ async function mintNftTiers() {
 
   console.log(`Umi instance created and signer set to: ${umi.identity.publicKey.toString()}`);
 
-  if (!HYBRID_COLLECTION_MINT_PDA) {
-    console.error('Error: HYBRID_COLLECTION_MINT_PDA environment variable is not set');
+  if (HYBRID_COLLECTION_MINT_PDA === 'YOUR_COLLECTION_MINT_PDA_ADDRESS_HERE') {
+    console.error('Error: HYBRID_COLLECTION_MINT_PDA is not set in scripts/mintTier.ts');
     return;
   }
-  if (!DEFAI_SPL_TOKEN_MINT) {
-    console.error('Error: DEFAI_SPL_TOKEN_MINT environment variable is not set');
+  if (DEFAI_SPL_TOKEN_MINT === 'YOUR_DEFAI_SPL_TOKEN_MINT_ADDRESS_HERE') {
+    console.error('Error: DEFAI_SPL_TOKEN_MINT is not set in scripts/mintTier.ts');
     return;
   }
 

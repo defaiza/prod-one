@@ -3,12 +3,11 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { Filter, Document } from 'mongodb';
-import { isAdminSession } from '@/lib/adminUtils';
 
 export async function GET(request: NextRequest) {
   const session: any = await getServerSession(authOptions);
 
-  if (!isAdminSession(session)) {
+  if (!session?.user?.role || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 

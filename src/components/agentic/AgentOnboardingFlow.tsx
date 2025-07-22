@@ -12,6 +12,10 @@ import { PublicKey, SystemProgram, Transaction, LAMPORTS_PER_SOL, Signer } from 
 import { TOKEN_PROGRAM_ID, getOrCreateAssociatedTokenAccount, createTransferInstruction } from '@solana/spl-token';
 import { toast } from "sonner";
 import { useRouter } from 'next/navigation';
+import AgentChat from "../agent";
+import { LandingTextarea } from "@/components/landing-textarea";
+import { LandingChatSessions } from "@/components/landing-chat-sessions";
+
 
 // API Payload Interfaces
 interface DeployAgentRequest {
@@ -62,7 +66,7 @@ export default function AgentOnboardingFlow({
   const { connection: primaryWalletConnection } = useConnection();
 
   const { step, setStep, riskTolerance, setRiskTolerance, resetOnboarding } = useOnboardingStore();
-  
+
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [isSettingRisk, setIsSettingRisk] = useState(false);
@@ -76,6 +80,7 @@ export default function AgentOnboardingFlow({
 
   useEffect(() => {
     const statusString = crossmintStatus as string;
+    // setStep("DEPLOY_AGENT");
     // If user connects Crossmint wallet, and we are on that step, advance to funding.
     if (step === "CONNECT_WALLET" && isAuthConnected(statusString) && crossmintSmartWallet?.address) {
       console.log("[AgentOnboardingFlow] Crossmint wallet connected/logged-in, smart wallet address available. Advancing to FUND_SMART_WALLET step.");
@@ -100,7 +105,7 @@ export default function AgentOnboardingFlow({
           <XIcon className="h-5 w-5" />
         </Button>
         <div className="pt-2">
-         {modalChildren}
+          {modalChildren}
         </div>
       </div>
     </div>
@@ -139,9 +144,9 @@ export default function AgentOnboardingFlow({
       // 2. Add DEFAI Token Transfer Instruction
       const sourceAta = await getOrCreateAssociatedTokenAccount(
         primaryWalletConnection,
-        primaryWalletPublicKey as any, 
-        defaiMintPubkey,            
-        primaryWalletPublicKey      
+        primaryWalletPublicKey as any,
+        defaiMintPubkey,
+        primaryWalletPublicKey
       );
       console.log(`Source DEFAI ATA: ${sourceAta.address.toBase58()}`);
 
@@ -151,10 +156,10 @@ export default function AgentOnboardingFlow({
         console.log("[Debug] Attempting to get/create destination ATA for Crossmint Smart Wallet:", crossmintSmartWallet.address);
         const destinationAtaAccount = await getOrCreateAssociatedTokenAccount(
           primaryWalletConnection,
-          primaryWalletPublicKey as any,     
-          defaiMintPubkey,            
-          crossmintSmartWalletPubkey, 
-          true                        
+          primaryWalletPublicKey as any,
+          defaiMintPubkey,
+          crossmintSmartWalletPubkey,
+          true
         );
         destinationAtaAddress = destinationAtaAccount.address;
         console.log("[Debug] Successfully got/prepared destination ATA:", destinationAtaAddress.toBase58());
@@ -172,7 +177,7 @@ export default function AgentOnboardingFlow({
         createTransferInstruction(
           sourceAta.address,
           destinationAtaAddress, // Use the address obtained from the diagnostic block
-          primaryWalletPublicKey,   
+          primaryWalletPublicKey,
           defaiAmountLamports,
           [],
           TOKEN_PROGRAM_ID
@@ -183,13 +188,13 @@ export default function AgentOnboardingFlow({
       console.log("Sending combined SOL and DEFAI transaction...");
       const signature = await primaryWalletSendTransaction!(transaction, primaryWalletConnection);
       console.log("Combined transaction sent, signature:", signature);
-      
+
       toast.info("Confirming transaction...", { id: signature });
       const confirmation = await primaryWalletConnection.confirmTransaction({
-         signature, 
-         blockhash: latestBlockhash.blockhash, 
-         lastValidBlockHeight: latestBlockhash.lastValidBlockHeight 
-        }, 'confirmed');
+        signature,
+        blockhash: latestBlockhash.blockhash,
+        lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+      }, 'confirmed');
 
       if (confirmation.value.err) {
         console.error("Transaction confirmation error:", confirmation.value.err);
@@ -198,11 +203,11 @@ export default function AgentOnboardingFlow({
 
       toast.success(`Successfully funded Smart Wallet with ${requiredSolAmount} SOL and ${requiredDefaiAmount} DEFAI!`, { id: signature });
       console.log("Combined transaction confirmed.");
-      
+
       setStep("DEPLOY_AGENT");
 
     } catch (error: any) {
-      console.error("[AgentOnboardingFlow] Combined funding error:", error, error.cause ? `Cause: ${error.cause}`: '' , error?.logs);
+      console.error("[AgentOnboardingFlow] Combined funding error:", error, error.cause ? `Cause: ${error.cause}` : '', error?.logs);
       let displayError = error.message || "Transaction failed or was rejected.";
       // Check cause for specific ATA error if re-thrown from diagnostic block
       const cause = error.cause as any;
@@ -213,7 +218,7 @@ export default function AgentOnboardingFlow({
       } else if (error.logs) {
         const logs = Array.isArray(error.logs) ? error.logs.join('\n') : String(error.logs);
         if (logs.includes('insufficient lamports')) displayError = "Insufficient SOL balance for transaction fees or transfer.";
-        else if (logs.includes('insufficient funds')) displayError = "Insufficient DEFAI token balance."; 
+        else if (logs.includes('insufficient funds')) displayError = "Insufficient DEFAI token balance.";
       }
       setOnboardingError(displayError);
       toast.error(`Funding failed: ${displayError}`);
@@ -221,8 +226,8 @@ export default function AgentOnboardingFlow({
       setIsProcessingPayment(false);
     }
   }, [
-    primaryWalletPublicKey, crossmintSmartWallet, primaryWalletConnection, 
-    primaryWalletSendTransaction, requiredSolAmount, requiredDefaiAmount, 
+    primaryWalletPublicKey, crossmintSmartWallet, primaryWalletConnection,
+    primaryWalletSendTransaction, requiredSolAmount, requiredDefaiAmount,
     defaiMintAddress, setStep, setOnboardingError
   ]);
 
@@ -230,59 +235,11 @@ export default function AgentOnboardingFlow({
   const handleDeployAgent = async () => {
     setIsDeploying(true);
     setOnboardingError(null);
-    console.log("[AgentOnboardingFlow] Attempting to deploy agent with risk tolerance:", riskTolerance);
-
-    if (!jwt) {
-      console.error("[AgentOnboardingFlow] No JWT found. Cannot deploy agent.");
-      setOnboardingError("Authentication token not found. Please try logging in again.");
+    // Simulate deployment delay
+    setTimeout(() => {
       setIsDeploying(false);
-      return;
-    }
-
-    try {
-      const payload: DeployAgentRequest = { riskTolerance };
-      const response = await fetch("/api/agents/deploy", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${jwt}`,
-        },
-        body: JSON.stringify(payload),
-        credentials: "include",
-      });
-
-      let data: DeployAgentResponse;
-      try {
-        data = await response.json();
-      } catch (e) {
-        if (!response.ok) {
-          throw new Error(`Agent deployment failed: ${response.status} ${response.statusText}`);
-        }
-        throw new Error("Agent deployment response was not valid JSON.");
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error || data.message || `Failed to deploy agent. Status: ${response.status}`);
-      }
-      
-      console.log("[AgentOnboardingFlow] Deploy agent API response:", data);
-      
-      if (data.success === false) {
-        throw new Error(data.message || data.error || "Agent deployment indicated failure.");
-      }
-
-      if (data.status === "RUNNING" || data.status === "DEPLOYING" || data.status === "PENDING" || data.status === "ACTIVE") {
-         setStep("SET_RISK"); 
-      } else {
-         throw new Error(data.message || data.error || `Agent deployment status is unexpected: ${data.status}`);
-      }
-
-    } catch (error: any) {
-      console.error("[AgentOnboardingFlow] Error deploying agent:", error);
-      setOnboardingError(error.message || "An unexpected error occurred during deployment.");
-    } finally {
-      setIsDeploying(false);
-    }
+      setStep("CHAT");
+    }, 1200);
   };
 
   // Handler for setting risk and completing onboarding
@@ -300,11 +257,11 @@ export default function AgentOnboardingFlow({
 
     try {
       const payload: SetRiskPreferenceRequest = { riskTolerance };
-      const response = await fetch("/api/agents/risk", { 
-        method: "PATCH", 
+      const response = await fetch("/api/agents/risk", {
+        method: "PATCH",
         headers: {
-           "Content-Type": "application/json",
-           "Authorization": `Bearer ${jwt}`,
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${jwt}`,
         },
         body: JSON.stringify(payload),
         credentials: "include",
@@ -326,33 +283,33 @@ export default function AgentOnboardingFlow({
 
   const renderContent = () => {
     const resetButton = process.env.NODE_ENV === 'development' ? (
-        <Button onClick={resetOnboarding} variant="link" size="sm" className="absolute top-3 right-12 text-xs z-20">Reset Flow</Button>
+      <Button onClick={resetOnboarding} variant="link" size="sm" className="absolute top-3 right-12 text-xs z-20">Reset Flow</Button>
     ) : null;
 
     const crossmintSessionActive = isAuthConnected(crossmintStatus as string);
-    
+
     const handleCrossmintDisconnect = async () => {
-        if (crossmintLogout) {
-            try {
-                await crossmintLogout();
-                toast.info("Crossmint session ended.");
-                resetOnboarding();
-            } catch (err: any) {
-                console.error("Crossmint logout error:", err);
-                toast.error(`Crossmint logout error: ${err.message || "Unknown error"}`);
-            }
+      if (crossmintLogout) {
+        try {
+          await crossmintLogout();
+          toast.info("Crossmint session ended.");
+          resetOnboarding();
+        } catch (err: any) {
+          console.error("Crossmint logout error:", err);
+          toast.error(`Crossmint logout error: ${err.message || "Unknown error"}`);
         }
+      }
     };
 
     const devDisconnectButton = process.env.NODE_ENV === 'development' && crossmintSessionActive ? (
-        <Button 
-            onClick={handleCrossmintDisconnect}
-            variant="outline"
-            size="sm"
-            className="absolute top-10 right-3 text-xs p-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded z-20 border-orange-300"
-        >
-            Disconnect CM (Dev)
-        </Button>
+      <Button
+        onClick={handleCrossmintDisconnect}
+        variant="outline"
+        size="sm"
+        className="absolute top-10 right-3 text-xs p-1 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded z-20 border-orange-300"
+      >
+        Disconnect CM (Dev)
+      </Button>
     ) : null;
 
     switch (step) {
@@ -434,7 +391,7 @@ export default function AgentOnboardingFlow({
 
             <Button
               className="w-full mt-4"
-              onClick={() => setStep("DEPLOY_AGENT")}
+              onClick={() => setStep("DONE")}
               disabled={!smartWalletAddr}
             >
               I&apos;ve funded my Smart Wallet
@@ -445,33 +402,47 @@ export default function AgentOnboardingFlow({
         );
       case "DEPLOY_AGENT":
         return (
-          <Modal showBackButton onBack={() => setStep("FUND_SMART_WALLET")}>
+          <Modal showBackButton onBack={() => setStep("FUND_SMART_WALLET")}> 
             {resetButton}
             {devDisconnectButton}
             <h2 className="text-lg font-semibold mb-2">3. Deploy Your AI Agent</h2>
-            <p className="mb-4 text-sm text-slate-600">Your personalised agent will be deployed to Fleek&rsquo;s serverless
-              infrastructure with secure key-management and its own smart wallet.
-            </p>
-            <Button className="w-full" onClick={handleDeployAgent} disabled={isDeploying}>{isDeploying ? "Deploying..." : "Deploy Agent"}</Button>
+            <p className="mb-4 text-sm text-slate-600">Your personalised agent will be deployed to Fleek&apos;s serverless infrastructure with secure key-management and its own smart wallet. (In this demo, deployment means initializing your chat agent!)</p>
+            <Button className="w-full" onClick={handleDeployAgent} disabled={isDeploying}>
+              {isDeploying ? "Deploying..." : "Deploy Agent"}
+            </Button>
             {onboardingError && <p className="text-xs text-red-500 mt-2">Error: {onboardingError}</p>}
           </Modal>
         );
+      case "CHAT":
+        return (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] w-full bg-white dark:bg-zinc-950 px-4 py-8">
+            <div className="w-full max-w-2xl mx-auto">
+              <h2 className="text-3xl xl:text-4xl font-semibold text-center tracking-tighter mb-6 text-pretty text-blue-700 dark:text-blue-400">Chat with your AI Agent</h2>
+              <div className="mb-8">
+                <LandingTextarea />
+              </div>
+              <div>
+                <LandingChatSessions />
+              </div>
+            </div>
+          </div>
+        );
       case "SET_RISK":
         return (
-          <Modal showBackButton onBack={() => setStep("DEPLOY_AGENT")}>
+          <Modal showBackButton onBack={() => setStep("FUND_SMART_WALLET")}>
             {resetButton}
             {devDisconnectButton}
             <h2 className="text-lg font-semibold mb-2">4. Set Agent Risk Preferences</h2>
             <div className="mb-4 text-sm text-slate-600 space-y-1">
-                <p>Define your agent&rsquo;s operational boundaries. This setting guides its decisions when selecting Liquidity Pools (LPs).</p>
-                <ul className="list-disc list-inside text-xs pl-2 text-slate-500">
-                    <li><strong>Level 1-2 (Conservative):</strong> Prefers established, lower-yield LPs with higher TVL and audit scores.</li>
-                    <li><strong>Level 3 (Balanced):</strong> Aims for a mix of safety and good returns. May explore newer LPs with caution.</li>
-                    <li><strong>Level 4-5 (Adventurous):</strong> May allocate to higher-yield, newer, or unaudited LPs. Higher potential reward, higher risk.</li>
-                </ul>
-                <p className="pt-2">Your agent will primarily operate within this risk comfort zone.</p>
+              <p>Define your agent&rsquo;s operational boundaries. This setting guides its decisions when selecting Liquidity Pools (LPs).</p>
+              <ul className="list-disc list-inside text-xs pl-2 text-slate-500">
+                <li><strong>Level 1-2 (Conservative):</strong> Prefers established, lower-yield LPs with higher TVL and audit scores.</li>
+                <li><strong>Level 3 (Balanced):</strong> Aims for a mix of safety and good returns. May explore newer LPs with caution.</li>
+                <li><strong>Level 4-5 (Adventurous):</strong> May allocate to higher-yield, newer, or unaudited LPs. Higher potential reward, higher risk.</li>
+              </ul>
+              <p className="pt-2">Your agent will primarily operate within this risk comfort zone.</p>
             </div>
-            <input type="range" min={1} max={5} step={1} value={riskTolerance} onChange={(e) => setRiskTolerance(parseInt(e.target.value))} className="w-full mb-2 accent-blue-600"/>
+            <input type="range" min={1} max={5} step={1} value={riskTolerance} onChange={(e) => setRiskTolerance(parseInt(e.target.value))} className="w-full mb-2 accent-blue-600" />
             <div className="text-center mb-4 text-sm font-medium text-slate-800">Selected Risk Level: <span className="text-blue-600 font-bold">{riskTolerance}</span></div>
             <Button className="w-full" onClick={handleSetRiskAndComplete} disabled={isSettingRisk}>{isSettingRisk ? "Saving..." : "Confirm & Launch Agent"}</Button>
             {onboardingError && <p className="text-xs text-red-500 mt-2">Error: {onboardingError}</p>}

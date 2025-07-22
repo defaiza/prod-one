@@ -1,472 +1,75 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* DeFAI Rewards Brand Guidelines CSS */
 :root {
-  --defai-purple: #c061ff;
-  --defai-white: #ffffff;
-  --element-font-size: 14px;
-  --element-font-size-sm: 12.25px;
-  --element-font-size-xs: 10.5px;
-  --element-font-size-lg: 15.75px;
-}
-
-/* Base styles following DeFAI Rewards brand guidelines */
-@layer base {
-  body {
-    @apply bg-white text-gray-900;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
-
-  /* Headlines - Following DeFAI Rewards guidelines */
-  h1, h2, h3, h4, h5, h6 {
-    @apply text-gray-900 font-bold;
-  }
-
-  /* Override heading colors in purple background containers */
-  .bg-defai-purple h1, .bg-defai-purple h2, .bg-defai-purple h3, 
-  .bg-defai-purple h4, .bg-defai-purple h5, .bg-defai-purple h6 {
-    @apply text-white !important;
-  }
-
-  /* Override all text colors in purple background containers */
-  .bg-defai-purple p, .bg-defai-purple span, .bg-defai-purple div {
-    @apply text-white !important;
-  }
-
-  /* All headings use Inter font */
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', sans-serif;
-  }
-
-  /* Text hierarchy */
-  h1 { @apply text-4xl md:text-5xl lg:text-6xl; }
-  h2 { @apply text-3xl md:text-4xl; }
-  h3 { @apply text-2xl md:text-3xl; }
-  h4 { @apply text-xl md:text-2xl; }
-  h5 { @apply text-lg md:text-xl; }
-  h6 { @apply text-base md:text-lg; }
-
-  /* Paragraphs */
-  p {
-    @apply text-gray-700 leading-relaxed;
-  }
-
-  /* Links - Using brand purple */
-  a {
-    @apply text-defai-purple transition-colors duration-200;
-  }
-  
-  a:hover {
-    @apply text-purple-700;
-  }
-}
-
-@layer components {
-  /* Primary button - DeFAI Rewards purple (brand guidelines) */
-  .btn-primary {
-    @apply bg-defai-purple text-white rounded-full py-3 px-6 font-semibold transition-all duration-200 hover:scale-105 shadow-lg disabled:bg-gray-400 disabled:text-gray-200;
-    box-shadow: 0 0 20px rgba(192, 97, 255, 0.5);
-  }
-  
-  .btn-primary:hover {
-    box-shadow: 0 0 30px rgba(192, 97, 255, 0.7);
-  }
-  
-  /* Secondary button - White with purple border */
-  .btn-secondary {
-    @apply bg-white text-defai-purple border-2 border-defai-purple rounded-full py-3 px-6 font-semibold transition-all duration-200 hover:bg-defai-purple hover:text-white hover:scale-105 disabled:border-gray-300 disabled:text-gray-400;
-  }
-
-  /* Cards and containers */
-  .defai-card {
-    @apply bg-white rounded-xl border border-gray-200 shadow-md;
-  }
-
-  /* Input fields */
-  .defai-input {
-    @apply bg-white text-gray-900 border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:border-defai-purple focus:ring-1 focus:ring-defai-purple/50 placeholder-gray-500;
-  }
+  --foreground-rgb: 0, 0, 0;
+  --background-rgb: 255, 255, 255;
 }
 
 @layer utilities {
-  /* Gradient text utility */
-  .gradient-purple {
-    @apply bg-gradient-to-r from-defai-purple to-purple-700 bg-clip-text text-transparent;
-  }
-
-  /* Custom shadows */
-  .shadow-purple {
-    box-shadow: 0 4px 20px rgba(192, 97, 255, 0.3);
-  }
-
-  /* Force white text color utility */
-  .force-white {
-    color: #fff !important;
+  .text-balance {
+    text-wrap: balance;
   }
 }
 
-/* Prevent animation flashing */
-.animate-fadeIn {
-  animation-fill-mode: forwards;
-}
-
-/* Ensure smooth loading */
-body {
-  animation: fadeIn 0.3s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/* Override Solana Wallet Adapter styles to match brand */
-.wallet-adapter-button {
-  background-color: var(--defai-purple) !important;
-  color: white !important;
-  border-radius: 9999px !important;
-  font-weight: 600 !important;
-  transition: all 0.2s !important;
-  box-shadow: 0 0 20px rgba(192, 97, 255, 0.5) !important;
-  border: none !important;
-}
-
-.wallet-adapter-button:hover:not([disabled]) {
-  background-color: var(--defai-purple) !important;
-  transform: scale(1.05) !important;
-  box-shadow: 0 0 30px rgba(192, 97, 255, 0.7) !important;
-}
-
-.wallet-adapter-button:focus {
-  outline: none !important;
-  box-shadow: 0 0 0 3px rgba(192, 97, 255, 0.3), 0 0 30px rgba(192, 97, 255, 0.7) !important;
-}
-
-/* Override Wallet Modal specific styles */
-.wallet-adapter-modal-wrapper {
-  background-color: rgba(0, 0, 0, 0.9) !important;
-}
-
-.wallet-adapter-modal {
-  background-color: #1a1a1a !important;
-  border: 1px solid rgba(192, 97, 255, 0.3) !important;
-}
-
-.wallet-adapter-modal-title {
-  color: var(--defai-purple) !important;
-  font-weight: 700 !important;
-}
-
-/* 
-  Alternative button styles for more visibility:
-  Option 1 - Solid purple with transparency:
-    background-color: rgba(192, 97, 255, 0.4) !important;
-    
-  Option 2 - Dark background with purple tint:
-    background-color: rgba(32, 14, 46, 0.9) !important;
-    
-  Option 3 - Gradient background:
-    background: linear-gradient(135deg, rgba(192, 97, 255, 0.3), rgba(192, 97, 255, 0.2)) !important;
-*/
-
-/* Override wallet selection buttons in the modal */
-.wallet-adapter-modal-list .wallet-adapter-button {
-  background-color: rgba(192, 97, 255, 0.25) !important;
-  border: 2px solid rgba(192, 97, 255, 0.6) !important;
-  color: white !important;
-  margin: 8px 0 !important;
-  padding: 16px !important;
-  border-radius: 12px !important;
-  width: 100% !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-}
-
-.wallet-adapter-modal-list .wallet-adapter-button:hover {
-  background-color: var(--defai-purple) !important;
-  border-color: var(--defai-purple) !important;
-  transform: translateY(-2px) !important;
-  box-shadow: 0 4px 20px rgba(192, 97, 255, 0.4) !important;
-}
-
-/* Detected label styling */
-.wallet-adapter-modal-list .wallet-adapter-button-end-icon {
-  color: rgba(192, 97, 255, 1) !important;
-  font-size: 14px !important;
-  font-weight: 600 !important;
-}
-
-/* Wallet icons and text */
-.wallet-adapter-modal-list .wallet-adapter-button-start-icon {
-  margin-right: 12px !important;
-}
-
-.wallet-adapter-modal-list .wallet-adapter-button-trigger {
-  background-color: transparent !important;
-  padding: 0 !important;
-}
-
-/* Close button */
-.wallet-adapter-modal-button-close {
-  background-color: rgba(192, 97, 255, 0.2) !important;
-  color: var(--defai-purple) !important;
-}
-
-.wallet-adapter-modal-button-close:hover {
-  background-color: rgba(192, 97, 255, 0.3) !important;
-}
-
-/* Additional overrides for different wallet adapter versions */
-.wallet-adapter-modal-container button {
-  background-color: rgba(192, 97, 255, 0.25) !important;
-  border: 2px solid rgba(192, 97, 255, 0.6) !important;
-  color: white !important;
-}
-
-.wallet-adapter-modal-container button:hover {
-  background-color: var(--defai-purple) !important;
-  border-color: var(--defai-purple) !important;
-}
-
-/* Override any gold/beige colors in wallet modal */
-.wallet-adapter-modal-wrapper button[style*="background"],
-.wallet-adapter-modal button[style*="background"] {
-  background-color: rgba(192, 97, 255, 0.25) !important;
-}
-
-/* Specific overrides for wallet list items */
-.wallet-adapter-modal-list li button,
-.wallet-adapter-modal-list-item,
-[class*="wallet-adapter-modal"] button:not(.wallet-adapter-modal-button-close) {
-  background: rgba(192, 97, 255, 0.25) !important;
-  border: 2px solid rgba(192, 97, 255, 0.6) !important;
-  color: white !important;
-}
-
-.wallet-adapter-modal-list li button:hover,
-.wallet-adapter-modal-list-item:hover,
-[class*="wallet-adapter-modal"] button:not(.wallet-adapter-modal-button-close):hover {
-  background: var(--defai-purple) !important;
-  border-color: var(--defai-purple) !important;
-}
-
-/* Force purple theme for all wallet modal elements */
-[class*="wallet-adapter-modal"] {
-  --wallet-adapter-button-background: var(--defai-purple);
-  --wallet-adapter-button-background-hover: var(--defai-purple);
-}
-
-/* Remove any gold/CDAF5D colors */
-[style*="CDAF5D" i],
-[style*="cdaf5d" i],
-[style*="rgb(205, 175, 93)"],
-[style*="rgb(205,175,93)"] {
-  background-color: var(--defai-purple) !important;
-  color: white !important;
-}
-
-/* Apply font sizes to element content */
-.element-container {
-  font-size: var(--element-font-size);
-  /* Ensure elements have visible borders */
-  border: 2px solid rgba(192, 97, 255, 0.3) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 0 10px rgba(192, 97, 255, 0.1) !important;
-}
-
-.element-container:hover {
-  border-color: rgba(192, 97, 255, 0.5) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 0 20px rgba(192, 97, 255, 0.2) !important;
-}
-
-/* Ensure element headers are always accessible for dragging */
-.element-container > div:first-child {
-  position: relative;
-  z-index: 10;
-}
-
-/* Prevent element content from blocking header interaction */
-.element-container > div:last-child {
-  position: relative;
-  z-index: 1;
-}
-
-/* Make sure draggable items inside elements don't prevent element dragging */
-.element-container [draggable="true"] {
-  -webkit-user-drag: element;
-}
-
-/* Ensure element header has higher stacking context */
-.element-container > div:first-child {
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.element-container .text-sm {
-  font-size: var(--element-font-size-sm) !important;
-}
-
-.element-container .text-xs {
-  font-size: var(--element-font-size-xs) !important;
-}
-
-.element-container .text-lg {
-  font-size: var(--element-font-size-lg) !important;
-}
-
-/* Range slider styling */
-.slider {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-}
-
-.slider::-webkit-slider-track {
-  background: #e5e5e5;
-  height: 8px;
-  border-radius: 4px;
-}
-
-.slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  background: #c061ff;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  cursor: pointer;
-  margin-top: -6px;
-}
-
-.slider::-moz-range-track {
-  background: #e5e5e5;
-  height: 8px;
-  border-radius: 4px;
-}
-
-.slider::-moz-range-thumb {
-  background: #c061ff;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  cursor: pointer;
-  border: none;
-}
-
-/* Float animation for showcase elements */
-@keyframes float {
-  0% {
-    transform: translateY(0px);
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 217.2 32.6% 17.5%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+    --invert-value: 0;
   }
-  50% {
-    transform: translateY(-10px);
-  }
-  100% {
-    transform: translateY(0px);
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 210 40% 96.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 215 20.2% 65.1%;
   }
 }
 
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-/* Hide scrollbar utility */
-.scrollbar-hide {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none; /* Chrome, Safari and Opera */
-}
-
-/* Responsive element adjustments */
-@media (max-width: 768px) {
-  .element-container {
-    position: relative !important;
-    width: calc(100% - 2rem) !important;
-    margin: 0 1rem 1rem 1rem !important;
-    left: 0 !important;
-    top: 0 !important;
+@layer base {
+  * {
+    @apply border-border;
   }
-  
-  /* Disable drag/resize on mobile */
-  .element-container .resize-handle {
-    display: none !important;
+  body {
+    @apply bg-background text-foreground;
   }
 }
 
-/* Tablet adjustments */
-@media (min-width: 768px) and (max-width: 1024px) {
-  .element-container {
-    max-width: calc(50% - 1rem);
-  }
-}
-
-/* Animation utilities */
-.animation-delay-200 {
-  animation-delay: 200ms;
-}
-
-.animation-delay-400 {
-  animation-delay: 400ms;
-}
-
-.animation-delay-600 {
-  animation-delay: 600ms;
-}
-
-.animation-delay-800 {
-  animation-delay: 800ms;
-}
-
-.animation-delay-2000 {
-  animation-delay: 2000ms;
-}
-
-/* Select Wallet button specific styling */
-button:has-text("Select Wallet"),
-button:contains("Select Wallet"),
-[class*="wallet"] button[class*="select"],
-.wallet-adapter-button-trigger {
-  background-color: var(--defai-purple) !important;
-  color: white !important;
-  border: none !important;
-  padding: 12px 24px !important;
-  border-radius: 9999px !important;
-  font-weight: 600 !important;
-  box-shadow: 0 0 20px rgba(192, 97, 255, 0.5) !important;
-}
-
-/* Dark mode overrides to prevent gold colors */
-.dark .wallet-adapter-button,
-.dark .wallet-adapter-modal-list .wallet-adapter-button,
-.dark [class*="wallet-adapter"] button {
-  background-color: rgba(192, 97, 255, 0.25) !important;
-  border: 2px solid rgba(192, 97, 255, 0.6) !important;
-  color: white !important;
-}
-
-.dark .wallet-adapter-button:hover,
-.dark .wallet-adapter-modal-list .wallet-adapter-button:hover,
-.dark [class*="wallet-adapter"] button:hover {
-  background-color: var(--defai-purple) !important;
-  border-color: var(--defai-purple) !important;
-}
-
-/* Override DEFAI-gold references in wallet components */
-.text-DEFAI-gold:is(.wallet-adapter-button, [class*="wallet-adapter"]),
-.bg-DEFAI-gold:is(.wallet-adapter-button, [class*="wallet-adapter"]) {
-  color: white !important;
-  background-color: var(--defai-purple) !important;
-}
-
-/* Additional utilities from previous styles */
 .loader {
   border: 2px solid #FFF;
   border-bottom-color: #d162c2;
@@ -474,16 +77,26 @@ button:contains("Select Wallet"),
   display: inline-block;
   box-sizing: border-box;
   animation: rotation 1s linear infinite;
+  }
+
+  @keyframes rotation {
+      0% {
+          transform: rotate(0deg);
+      }
+      100% {
+          transform: rotate(360deg);
+      }
+      } 
+
+/* Hide scrollbars but maintain functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
 
-@keyframes rotation {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+} 
 
 /* New Animations */
 @keyframes fadeUp {
@@ -499,6 +112,33 @@ button:contains("Select Wallet"),
 
 .animate-fadeUp {
   animation: fadeUp 0.6s cubic-bezier(0.23, 1, 0.32, 1) both;
+} 
+
+/* Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out;
 }
 
 /* Button hover effects */
@@ -508,31 +148,27 @@ button:contains("Select Wallet"),
 
 .hover-glow:hover {
   transform: scale(1.05);
-  box-shadow: 0 0 15px rgba(192, 97, 255, 0.5);
-}
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.5);
+} 
 
 /* Custom Scrollbar Styles */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
-
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(192, 97, 255, 0.1);
+  background: theme('colors.slate.800'); 
   border-radius: 10px;
 }
-
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(192, 97, 255, 0.5);
+  background: theme('colors.slate.600');
   border-radius: 10px;
-  border: 2px solid rgba(192, 97, 255, 0.1);
+  border: 2px solid theme('colors.slate.800');
 }
-
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--defai-purple);
+  background: theme('colors.slate.500');
 }
-
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(192, 97, 255, 0.5) rgba(192, 97, 255, 0.1);
+  scrollbar-color: theme('colors.slate.600') theme('colors.slate.800');
 } 

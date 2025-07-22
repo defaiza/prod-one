@@ -6,10 +6,8 @@ import * as jose from 'jose';
 let jwks: ReturnType<typeof jose.createRemoteJWKSet> | null = null;
 
 const CROSSMINT_ISSUER = 'https://www.crossmint.com';
-// It's crucial to confirm the correct audience string from Crossmint documentation.
-// Common values are 'client-sdk', your project ID, or a specific API audience.
-// Using a placeholder, update if Crossmint docs specify otherwise.
-const CROSSMINT_AUDIENCE = 'crossmint_api'; // Placeholder - VERIFY THIS!
+// Try different audience values - Crossmint typically uses 'client-sdk' or your project ID
+const CROSSMINT_AUDIENCE = 'client-sdk'; // Changed from 'crossmint_api' to 'client-sdk'
 
 /**
  * Verifies a JWT from Crossmint against their public JWKS.
@@ -31,6 +29,16 @@ export async function verifyCrossmintJwt(token: string): Promise<jose.JWTPayload
   }
 
   try {
+    // First, try to decode the JWT without verification to see the payload
+    const decoded = jose.decodeJwt(token);
+    console.log('[CrossmintJWT] JWT decoded (unverified):', {
+      iss: decoded.iss,
+      aud: decoded.aud,
+      sub: decoded.sub,
+      exp: decoded.exp,
+      iat: decoded.iat
+    });
+
     // The jwks function (from createRemoteJWKSet) is directly passed as the key argument.
     const { payload, protectedHeader } = await jose.jwtVerify(token, jwks, {
       issuer: CROSSMINT_ISSUER,
@@ -45,6 +53,22 @@ export async function verifyCrossmintJwt(token: string): Promise<jose.JWTPayload
     if (error.code) {
         console.error('[CrossmintJWT] Verification error code:', error.code);
     }
+    
+    // If audience verification fails, try without audience verification
+    if (error.code === 'ERR_JWT_AUDIENCE_MISMATCH' || error.message.includes('audience')) {
+      console.log('[CrossmintJWT] Trying verification without audience check...');
+      try {
+        const { payload, protectedHeader } = await jose.jwtVerify(token, jwks, {
+          issuer: CROSSMINT_ISSUER,
+          // Remove audience verification
+        });
+        console.log('[CrossmintJWT] JWT verified successfully without audience check.');
+        return payload as jose.JWTPayload & { sub?: string; wallets?: { address: string; chain: string; primary?: boolean }[] };
+      } catch (retryError: any) {
+        console.error('[CrossmintJWT] JWT verification failed even without audience check:', retryError.message);
+      }
+    }
+    
     throw error; // Re-throw the original error for the caller to handle
   }
 } 

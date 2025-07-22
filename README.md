@@ -1,443 +1,297 @@
-# DeFAI Rewards Platform
+# User Engagement & Rewards Platform
 
-A comprehensive user engagement and rewards platform built on Solana blockchain, featuring social media integration, squad-based governance, and token reward distribution.
+This platform is designed to foster user engagement through a points-based reward system, referral program, and social media interaction tracking. It integrates with X (formerly Twitter) for authentication and allows users to earn points for various activities.
 
-![Platform Overview](./template-image.jpg)
+![WebUI Preview](./template-image.jpg)
 
-## Table of Contents
+## Core Featuressssssssss
 
-- [Overview](#overview)
-- [Key Features](#key-features)
-- [Tech Stack](#tech-stack)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Running the Application](#running-the-application)
-- [Project Structure](#project-structure)
-- [Core Features Documentation](#core-features-documentation)
-- [API Documentation](#api-documentation)
-- [Testing](#testing)
-- [Deployment](#deployment)
-- [Contributing](#contributing)
-- [Troubleshooting](#troubleshooting)
-- [License](#license)
-
-## Overview
-
-DeFAI Rewards is a cutting-edge platform that combines social engagement, blockchain technology, and community governance to create a comprehensive rewards ecosystem. Users can earn points through various activities, participate in squad-based governance, and receive token rewards based on their contributions.
-
-### Core Value Propositions
-
-- **Social Engagement Rewards**: Earn points for X (Twitter) activities and referrals
-- **Squad-Based Governance**: Create and join squads to participate in collective decision-making
-- **Token Distribution**: Fair and transparent token reward system with proposal voting
-- **Blockchain Integration**: Built on Solana for fast, low-cost transactions
-- **Real-time Notifications**: Stay updated with WebSocket-powered notifications
-
-## Key Features
-
-### User Management & Authentication
-- **X (Twitter) OAuth Integration**: Secure authentication using social accounts
-- **Multi-Wallet Support**: Connect and manage multiple Solana wallets
-- **Profile Management**: Customizable user profiles with social links
-
-### Points & Rewards System
-- **Multi-Action Point System**: Earn points for:
-  - Initial platform connection
-  - Social media engagement
-  - Following official accounts
-  - Successful referrals
-  - Daily check-ins
-  - Quest completion
-- **Dynamic Leaderboard**: Real-time ranking system
-- **Airdrop Eligibility**: Automatic calculation based on activity
-
-### Squad System
-- **Squad Creation**: Form teams with up to 100 members
-- **Tiered Progression**: Three tiers based on collective points
-- **Squad Governance**: Leaders can create proposals for token distribution
-- **Invitation System**: Private invite links with expiration
-
-### Proposal & Voting System
-- **Democratic Voting**: Weight-based voting system
-- **Proposal Lifecycle**: Active → Closed → Archived workflow
-- **Real-time Progress**: Visual indicators for quorum and approval
-- **Automated Processing**: Cron jobs for proposal execution
-
-### Blockchain Features
-- **Token Escrow**: Secure token holding and distribution
-- **NFT Integration**: Support for Core NFT assets
-- **Crossmint Integration**: Simplified wallet creation and management
-- **Multi-RPC Support**: Fallback RPC endpoints for reliability
+*   **User Authentication:** Secure sign-up and login using X (Twitter) accounts via NextAuth.js.
+*   **Points System:** Users earn points for actions like initial connection, social sharing, following, airdrop eligibility, and referrals.
+*   **Referral Program:** Users can refer others and earn bonus points.
+*   **Social Engagement Tracking:** Logs actions such as sharing content or following on X.
+*   **Airdrop Rewards:** Calculates and assigns points based on predefined airdrop criteria.
+*   **Leaderboard:** Displays top users based on accumulated points.
+*   **Dark/Light Mode:** Theme support for user preference.
+*   **(If Applicable) Escrow Management:** Interface for managing token escrow settings, viewing balances, and assets held (accessible via `/escrow`).
 
 ## Tech Stack
 
-### Frontend
-- **Framework**: Next.js 14 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **UI Components**: Shadcn/ui
-- **State Management**: Zustand
-- **Form Handling**: React Hook Form with Zod validation
+*   **Frontend Framework:** Next.js (React)
+*   **Styling:** Tailwind CSS
+*   **UI Components:** Shadcn
+*   **State Management:** Zustand
+*   **Authentication:** NextAuth.js
+*   **Database:** MongoDB
+*   **Solana Integration:** Solana WalletAdapter, Metaplex Umi (for blockchain interactions if applicable to escrow features)
 
-### Backend
-- **API**: Next.js API Routes
-- **Authentication**: NextAuth.js
-- **Database**: MongoDB with Mongoose ODM
-- **Real-time**: Server-Sent Events (SSE)
-- **Queue System**: RabbitMQ (optional)
-- **Caching**: Redis
+## Getting Started
 
-### Blockchain
-- **Network**: Solana
-- **Wallet Integration**: Solana Wallet Adapter
-- **NFT Standard**: Metaplex
-- **Smart Contracts**: Anchor Framework
+Follow these steps to get the platform running locally.
 
-### Infrastructure
-- **Deployment**: Vercel/AWS/Docker
-- **CDN**: Fleek for decentralized storage
-- **Monitoring**: OpenTelemetry
-- **Analytics**: Custom event tracking
+### 1. Prerequisites
 
-## Prerequisites
+*   Node.js (v18.x or later recommended)
+*   npm (or yarn)
 
-- Node.js v18.x or later
-- npm/yarn/pnpm package manager
-- MongoDB instance (local or Atlas)
-- Solana wallet for testing
-- X (Twitter) Developer Account
+### 2. Clone the Repository
 
-## Installation
-
-1. **Clone the repository**
 ```bash
-git clone https://github.com/defai/tokenEscrowFE.git
-cd tokenEscrowFE
+git clone https://github.com/your-username/your-repository-name.git
+cd your-repository-name
+```
+*(Replace with the actual repository URL if different from the example used in the original README)*
+
+### 3. Environment Variable Setup
+
+This is a critical step for the application to function correctly. Rename the `.env.example` file to `.env.local` in the root of your project and fill in the following values:
+
+```shell
+# MongoDB Connection (Required for all user data, points, referrals, etc.)
+MONGODB_URI="your_mongodb_connection_string"
+MONGODB_DB_NAME="your_mongodb_database_name"
+
+# X (Twitter) OAuth Credentials (Required for user login)
+# Create an app at https://developer.twitter.com/en/portal/projects-and-apps
+X_CLIENT_ID="your_x_app_client_id"
+X_CLIENT_SECRET="your_x_app_client_secret"
+
+# NextAuth.js Secret (Required for session security)
+# Generate a secret: `openssl rand -base64 32`
+NEXTAUTH_SECRET="your_nextauth_secret"
+
+# Solana RPC URL (Required if using Solana blockchain features)
+NEXT_PUBLIC_RPC="https://your-solana-rpc-url"
+
+# Escrow Configuration (If applicable to your platform's features)
+# These are typically addresses on the Solana blockchain.
+NEXT_PUBLIC_ESCROW="escrow_account_public_key"
+NEXT_PUBLIC_COLLECTION="collection_public_key_if_applicable"
+NEXT_PUBLIC_TOKEN="token_mint_public_key_if_applicable"
+
+# Optional: Specify the full URL for your application in production
+# NEXTAUTH_URL="https://yourdomain.com"
 ```
 
-2. **Install dependencies**
+**Explanation of Environment Variables:**
+
+*   `MONGODB_URI`: Your full MongoDB connection string.
+*   `MONGODB_DB_NAME`: The name of the database to use within your MongoDB instance.
+*   `X_CLIENT_ID` & `X_CLIENT_SECRET`: Credentials from your X (Twitter) Developer App for OAuth authentication.
+*   `NEXTAUTH_SECRET`: A random string used to hash tokens and cookies for NextAuth.js.
+*   `NEXT_PUBLIC_RPC`: The URL of the Solana RPC endpoint you want to connect to for any blockchain interactions.
+*   `NEXT_PUBLIC_ESCROW`, `NEXT_PUBLIC_COLLECTION`, `NEXT_PUBLIC_TOKEN`: Solana public keys related to the token escrow functionality, if used.
+*   `NEXTAUTH_URL`: The canonical URL of your deployed application. Important for NextAuth.js redirects, especially in production.
+
+### 4. Install Dependencies
+
 ```bash
 npm install
-# or
+```
+or if you use yarn:
+```bash
 yarn install
-# or
-pnpm install
 ```
 
-3. **Setup environment variables**
-```bash
-cp .env.example .env.local
-```
+### 5. Run the Development Server
 
-4. **Configure MongoDB indexes**
-```javascript
-// Connect to your MongoDB instance and run:
-use defaiaffiliate;
-db.users.createIndex({ xUserId: 1 }, { unique: true, sparse: true });
-db.users.createIndex({ walletAddress: 1 }, { unique: true, sparse: true });
-db.users.createIndex({ referralCode: 1 }, { unique: true, sparse: true });
-db.squads.createIndex({ name: 1 }, { unique: true });
-db.proposals.createIndex({ squadId: 1, status: 1 });
-```
-
-## Configuration
-
-### Essential Environment Variables
-
-Create a `.env.local` file with the following variables:
-
-```bash
-# Database Configuration
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
-MONGODB_DB_NAME=defaiaffiliate
-
-# Authentication
-NEXTAUTH_SECRET=your-secret-key # Generate: openssl rand -base64 32
-NEXTAUTH_URL=http://localhost:3000
-
-# X (Twitter) OAuth
-X_CLIENT_ID=your-x-client-id
-X_CLIENT_SECRET=your-x-client-secret
-X_CALLBACK_URL=http://localhost:3000/api/x/connect/callback
-X_TOKEN_ENCRYPTION_KEY=32-byte-hex-string # Generate: openssl rand -hex 32
-DEFAI_REWARDS_X_USER_ID=twitter-user-id # Get from tweeterid.com
-
-# Solana Configuration
-NEXT_PUBLIC_RPC=https://api.mainnet-beta.solana.com
-NEXT_PUBLIC_SOLANA_NETWORK=mainnet-beta
-NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS=token-mint-address
-NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS=6
-
-# Crossmint Integration
-NEXT_PUBLIC_CROSSMINT_CLIENT_SIDE=your-client-key
-NEXT_PUBLIC_CROSSMINT_API_KEY=your-api-key
-CROSSMINT_AUDIENCE=your-audience-id
-
-# Redis Configuration (Optional)
-REDIS_URL=redis://localhost:6379
-
-# Admin Configuration
-ADMIN_X_IDS=comma,separated,handles
-ADMIN_WALLET_ADDRESSES=comma,separated,addresses
-
-# Feature Flags
-NEXT_PUBLIC_MIN_DEFAI_BALANCE=100
-NEXT_PUBLIC_REQUIRED_DEFAI_AMOUNT=5000
-```
-
-### Proposal System Configuration
-
-```bash
-# Frontend Settings
-NEXT_PUBLIC_SQUAD_POINTS_TO_CREATE_PROPOSAL=10000
-NEXT_PUBLIC_MIN_POINTS_TO_VOTE=500
-NEXT_PUBLIC_PROPOSAL_BROADCAST_THRESHOLD=1000
-NEXT_PUBLIC_PROPOSALS_PER_PAGE=10
-
-# Backend/Cron Settings
-CRON_PROPOSAL_PASS_THRESHOLD=0
-CRON_PROPOSAL_ARCHIVE_DELAY_DAYS=7
-CRON_SECRET=your-cron-secret
-```
-
-## Running the Application
-
-### Development Mode
 ```bash
 npm run dev
-# Application runs on http://localhost:3000
 ```
+The application should now be running at `http://localhost:3000`.
 
-### Production Build
+## Build & Deployment
+
+### Build Command
+
+To create an optimized production build, run:
+
 ```bash
 npm run build
-npm run start
 ```
 
-### Run with Docker
+### Deployment Notes
+
+*   **CRITICAL: Environment Variables:** Ensure all the environment variables listed in the `.env.local` section above are correctly configured in your deployment platform's settings (e.g., Vercel, Netlify, AWS Amplify, Docker environment). The build will fail or the application will not run correctly without them, especially `MONGODB_URI`, `MONGODB_DB_NAME`, `X_CLIENT_ID`, `X_CLIENT_SECRET`, and `NEXTAUTH_SECRET`.
+*   **Database Accessibility:** Make sure your deployment environment can access your MongoDB instance (e.g., firewall rules, IP whitelisting if your database is not publicly accessible).
+*   **Browserslist:** If you see a warning during the build like `Browserslist: caniuse-lite is outdated`, you can update it by running:
+    ```bash
+    npx update-browserslist-db@latest
+    ```
+    Then, commit the changes to your `package-lock.json` or `yarn.lock` file.
+*   **NEXTAUTH_URL:** For production deployments, it is highly recommended to set the `NEXTAUTH_URL` environment variable to the canonical URL of your application.
+
+## (Optional) Escrow Management
+
+If your platform includes token escrow functionalities, you may be able to manage the escrow settings by navigating to the `/escrow` path in your application. This section typically allows for:
+*   Viewing an overview of escrow settings.
+*   Editing and updating escrow parameters.
+*   Checking token balances held in escrow.
+*   Viewing Core NFT Assets associated with the escrow.
+
+## (Optional) Customization
+
+### Image Replacement
+The template might use placeholder images for collection art or token icons. These can typically be found and replaced in the `src/assets/images/` directory (e.g., `collectionImage.jpg`, `token.jpg`).
+
+## Governance and Proposal System
+
+This project includes a squad-based governance system allowing leaders to create token reward proposals, and for squad members to vote on them.
+
+### Key Features
+
+*   **Proposal Creation:** Squad leaders with sufficient points can create proposals.
+*   **Voting:** Squad members can vote (up, down, abstain) with their points acting as vote weight.
+*   **Proposal Lifecycle:** Proposals are active, then processed to be `closed_passed`, `closed_failed`, or `closed_executed`, and eventually `archived`.
+*   **Notifications:** Users receive notifications for new proposals and proposal results.
+*   **Progress Display:** Proposal cards show progress towards quorum and approval.
+
+### Environment Variables (Proposal System)
+
+In addition to the core environment variables, the following are used for the proposal and voting system. Ensure they are set in your `.env.local` file and deployment environment:
+
+#### Frontend (NEXT_PUBLIC_)
+*   `NEXT_PUBLIC_SQUAD_POINTS_TO_CREATE_PROPOSAL=10000` - Minimum squad points for a leader to create a proposal.
+*   `NEXT_PUBLIC_MIN_POINTS_TO_VOTE=500` - Minimum DeFAI points a user needs to vote.
+*   `NEXT_PUBLIC_PROPOSAL_BROADCAST_THRESHOLD=1000` - Points threshold (sum of upvote weights) for a proposal to be marked "broadcasted".
+*   `NEXT_PUBLIC_PROPOSALS_PER_PAGE=10` - Number of proposals to show per page on the proposals list.
+*   `NEXT_PUBLIC_PROPOSALS_REFRESH_INTERVAL=30000` - Interval in milliseconds for polling active proposals (e.g., 30000 for 30s).
+*   `NEXT_PUBLIC_PROPOSAL_QUORUM_VOTERS_TARGET=10` - UI target for number of voters for quorum progress bar.
+*   `NEXT_PUBLIC_PROPOSAL_QUORUM_WEIGHT_TARGET=5000` - UI target for total engaged weight for quorum progress bar.
+*   `NEXT_PUBLIC_PROPOSAL_PASS_NET_WEIGHT_TARGET=1000` - UI target for net positive vote weight for "approval strength" progress bar.
+
+#### Backend / Cron (Server-side only)
+*   `CRON_PROPOSAL_PASS_THRESHOLD=0` - Net vote weight (upWeight - downWeight) above which a proposal is considered passed by the cron job.
+*   `CRON_PROPOSAL_ARCHIVE_DELAY_DAYS=7` - Number of days after a proposal is closed before it's archived by the cron job.
+
+### Cron Jobs (Proposal System)
+
+A cron job is used to process and archive proposals.
+*   **Script Path:** `src/scripts/cron/processProposals.ts`
+*   **Functionality:**
+    *   Processes active proposals whose voting period (`epochEnd`) has passed.
+    *   Calculates final vote tallies and determines pass/fail status.
+    *   Updates proposal status (e.g., to `closed_passed`, `closed_failed`).
+    *   Triggers notifications to squad members about proposal outcomes.
+    *   (Placeholder for token distribution on passed proposals).
+    *   Archives proposals that have been closed for `CRON_PROPOSAL_ARCHIVE_DELAY_DAYS`.
+
+**Running Cron Locally:**
+
+To run this cron job locally (e.g., for testing), ensure `ts-node` is installed (`npm install -g ts-node` or add to devDependencies) and then execute:
+
 ```bash
-docker build -t defai-rewards .
-docker run -p 3000:3000 --env-file .env.local defai-rewards
+node -r ts-node/register src/scripts/cron/processProposals.ts
 ```
+Alternatively, if your `tsconfig.json` allows, you might compile it first and then run the JS file.
 
-## Project Structure
+**Production Cron Setup:**
 
-```
-tokenEscrowFE/
-├── src/
-│   ├── app/                    # Next.js 14 App Router pages
-│   │   ├── api/               # API routes
-│   │   ├── admin/             # Admin dashboard pages
-│   │   ├── profile/           # User profile pages
-│   │   ├── squads/            # Squad management pages
-│   │   └── proposals/         # Proposal voting pages
-│   ├── components/            # React components
-│   │   ├── layout/           # Layout components
-│   │   ├── proposals/        # Proposal-specific components
-│   │   ├── squads/           # Squad-specific components
-│   │   └── ui/               # Shadcn UI components
-│   ├── lib/                   # Core libraries and utilities
-│   │   ├── auth.ts           # NextAuth configuration
-│   │   ├── mongodb.ts        # Database connection
-│   │   └── encryption.ts     # Token encryption utilities
-│   ├── hooks/                # Custom React hooks
-│   ├── store/                # Zustand state management
-│   ├── types/                # TypeScript type definitions
-│   └── utils/                # Utility functions
-├── scripts/                   # Utility scripts
-│   ├── cron/                 # Cron job scripts
-│   └── migration/            # Database migration scripts
-├── public/                    # Static assets
-├── tests/                     # Test files
-│   ├── e2e/                  # End-to-end tests
-│   └── unit/                 # Unit tests
-└── docs/                      # Additional documentation
-```
+For production, set this script up with a cron scheduler. If using Vercel, you can define a cron job in `vercel.json` that calls an API route wrapper for this script:
 
-## Core Features Documentation
-
-### Authentication Flow
-1. User clicks "Connect with X"
-2. OAuth redirect to Twitter
-3. Callback handles token exchange
-4. User session created with NextAuth
-5. MongoDB user record created/updated
-
-### Points Calculation
-- Initial connection: 100 points
-- Social share: 50 points
-- Follow @defAIRewards: 200 points
-- Successful referral: 500 points
-- Daily check-in: 10 points
-- Quest completion: Variable
-
-### Squad Tiers
-- **Tier 1**: 1,000 points, max 10 members
-- **Tier 2**: 5,000 points, max 50 members
-- **Tier 3**: 10,000 points, max 100 members
-
-### Proposal Voting
-- Proposals require minimum squad points to create
-- Voting weight equals user's points
-- Votes: Upvote (+1), Downvote (-1), Abstain (0)
-- Quorum: Minimum participation threshold
-- Pass threshold: Net positive votes
-
-## API Documentation
-
-### Authentication Endpoints
-- `POST /api/auth/wallet-login` - Wallet-based authentication
-- `GET /api/x/connect/initiate` - Start X OAuth flow
-- `GET /api/x/connect/callback` - Handle OAuth callback
-- `POST /api/x/connect/disconnect` - Disconnect X account
-
-### User Management
-- `GET /api/users/my-details` - Get current user details
-- `GET /api/users/my-points` - Get user points breakdown
-- `GET /api/users/leaderboard` - Get top users
-- `POST /api/users/link-wallet` - Link Solana wallet
-
-### Squad Management
-- `POST /api/squads/create` - Create new squad
-- `POST /api/squads/join` - Join squad
-- `GET /api/squads/my-squad` - Get user's squad
-- `POST /api/squads/invitations/send` - Send invitation
-
-### Proposal System
-- `GET /api/proposals/active` - Get active proposals
-- `POST /api/proposals/[id]/vote` - Submit vote
-- `GET /api/proposals/[id]` - Get proposal details
-
-## Testing
-
-### Unit Tests
-```bash
-npm run test
-```
-
-### End-to-End Tests
-```bash
-# Install Playwright
-npx playwright install
-
-# Run tests
-npm run test:e2e
-
-# Run in headed mode
-npm run test:e2e -- --headed
-```
-
-### Test Coverage
-```bash
-npm run test:coverage
-```
-
-## Deployment
-
-### Vercel Deployment
-1. Connect GitHub repository to Vercel
-2. Configure environment variables in Vercel dashboard
-3. Set up cron jobs in `vercel.json`:
 ```json
+// In vercel.json
 {
   "crons": [
     {
-      "path": "/api/cron/process-proposals",
-      "schedule": "0 */6 * * *"
-    },
-    {
-      "path": "/api/cron/quest-lifecycle",
-      "schedule": "0 0 * * *"
+      "path": "/api/cron/process-proposals", // Create this API route to execute the script
+      "schedule": "0 0 * * *" // Example: Every day at midnight UTC
     }
   ]
 }
 ```
+Create an API route (e.g., `src/pages/api/cron/process-proposals.ts`) that imports and calls the main function from `src/scripts/cron/processProposals.ts`.
+Ensure any necessary environment variables are available to this API route.
 
-### Docker Deployment
-```bash
-# Build image
-docker build -t defai-rewards:latest .
+## Environment Variables
 
-# Run container
-docker run -d \
-  --name defai-rewards \
-  -p 3000:3000 \
-  --env-file .env.production \
-  defai-rewards:latest
+Create a `.env.local` file in the root of the project and add the following variables:
+
+```
+# NextAuth
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET= # Generate a strong secret: openssl rand -hex 32
+X_CLIENT_ID= # Your X/Twitter App Client ID
+X_CLIENT_SECRET= # Your X/Twitter App Client Secret
+
+# Crossmint
+NEXT_PUBLIC_CROSSMINT_CLIENT_SIDE= # Your Crossmint Client-Side API Key (from Staging Console for dev)
+# Ensure this key has 'users' and 'wallet API' scopes, JWT Auth enabled, and http://localhost:3000 whitelisted (or your dev port).
+
+# MongoDB
+MONGODB_URI= # Your MongoDB connection string (e.g., from Atlas)
+MONGODB_DB_NAME=defoiaffiliate # Or your DB name
+
+# For Agents (Conceptual - if deploying to Fleek or similar)
+# CROSSMINT_SERVER_SIDE_API_KEY= # Crossmint Server-Side API key for agent actions
+# ALCHEMY_API_KEY= # If using Crossmint EVM Smart Wallets that require Alchemy
+
+# For Crossmint Verifiable Credentials (Future - if implementing real VCs)
+# CROSSMINT_VC_SERVICE_KEY= # API key for Crossmint VC service
 ```
 
-### Production Checklist
-- [ ] Set production environment variables
-- [ ] Configure MongoDB indexes
-- [ ] Set up SSL certificates
-- [ ] Configure CORS policies
-- [ ] Enable rate limiting
-- [ ] Set up monitoring and alerts
-- [ ] Configure backup strategies
-- [ ] Test all OAuth flows
-- [ ] Verify WebSocket connections
-- [ ] Run security audit
+## Local Development
 
-## Contributing
+1.  **Install Dependencies:**
+    ```bash
+    npm install
+    # or
+    pnpm install
+    # or
+    yarn install
+    ```
 
-We welcome contributions! Please follow these guidelines:
+2.  **Setup Database:**
+    *   Ensure you have a MongoDB instance running and accessible.
+    *   Update the `MONGODB_URI` and `MONGODB_DB_NAME` in your `.env.local`.
+    *   Connect to your MongoDB instance using `mongosh` or a GUI tool.
+    *   Create/verify the necessary unique indexes on the `users` collection:
+        ```javascript
+        // use your_database_name; // e.g., use defoiaffiliate;
+        db.users.createIndex({ xUserId: 1 }, { unique: true, sparse: true }); // Ensure this matches your confirmed setup
+        db.users.createIndex({ walletAddress: 1 }, { unique: true, sparse: true });
+        db.users.createIndex({ referralCode: 1 }, { unique: true, sparse: true }); // If using referrals
+        ```
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+3.  **Run Development Server:**
+    ```bash
+    npm run dev
+    # or
+    pnpm dev
+    # or
+    yarn dev
+    ```
+    The application will be available at `http://localhost:3000` (or your configured port).
 
-### Development Standards
-- Write TypeScript with strict mode enabled
-- Follow ESLint and Prettier configurations
-- Write tests for new features
-- Update documentation as needed
-- Ensure all tests pass before submitting PR
+## Testing
 
-## Troubleshooting
+### End-to-End Tests (Playwright)
 
-### Common Issues
+1.  **Install Playwright & Browsers:**
+    If you haven't already:
+    ```bash
+    npm install --save-dev @playwright/test
+    npx playwright install
+    ```
 
-**MongoDB Connection Failed**
-- Verify connection string format
-- Check IP whitelist in MongoDB Atlas
-- Ensure database user has correct permissions
+2.  **Run Tests:**
+    Ensure the development server is running before executing E2E tests that target it.
+    ```bash
+    npx playwright test tests/e2e/onboarding.spec.ts
+    ```
+    To run in headed mode for debugging:
+    ```bash
+    npx playwright test tests/e2e/onboarding.spec.ts --headed
+    ```
+    To view the HTML report after a run:
+    ```bash
+    npx playwright show-report
+    ```
 
-**X OAuth Error**
-- Verify X_CALLBACK_URL matches app configuration
-- Check X_CLIENT_ID and X_CLIENT_SECRET
-- Ensure redirect URIs are properly configured
+**Note on E2E Test Linter/Type Errors:**
+The test file `tests/e2e/onboarding.spec.ts` may show TypeScript linter errors in some editors related to:
+*   `Cannot find module '@playwright/test'`: This typically indicates an issue with the TypeScript configuration (`tsconfig.json`) not recognizing Playwright types, or the editor's TS server needing a restart. Ensure `tsconfig.json` includes Playwright types (e.g., in `compilerOptions.types` or via `typeRoots`).
+*   Type conflicts for `window.crossmintUiService` (and similar mocked global objects): These arise from differences between the specific types used in component code and the more generic `any` types used for mocking in the test file for expediency. A long-term fix involves creating shared type definition files (`.d.ts`) for these interfaces and importing them in both the application code and the test scripts. For sprint purposes, the tests aim for functional correctness and these specific type annotations in the test file can be refined later.
 
-**500 Internal Server Error**
-- Check server logs for detailed error
-- Verify all environment variables are set
-- Check MongoDB connection
-- Ensure X_TOKEN_ENCRYPTION_KEY is 32-byte hex
-
-**WebSocket Connection Issues**
-- Verify NEXT_PUBLIC_WEBSOCKET_URL
-- Check CORS configuration
-- Ensure SSL certificates are valid
-
-### Debug Mode
-Enable debug logging:
-```bash
-DEBUG=* npm run dev
-```
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-For support and questions:
-- Create an issue on GitHub
-- Join our Discord community
-- Follow [@defAIRewards](https://twitter.com/defAIRewards) on X
-
----
-
-Built with ❤️ by the DeFAI team
+This project was developed with a focus on rapid iteration to achieve a walking skeleton within a 60-minute timeframe.# prod-one
+# prod-one

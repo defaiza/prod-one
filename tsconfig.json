@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
+
     "lib": [
       "dom",
       "dom.iterable",
@@ -17,7 +17,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "target": "es2017",
+    "target": "ESNext",
     "plugins": [
       {
         "name": "next"
@@ -28,6 +28,7 @@
         "./src/*"
       ]
     },
+    "baseUrl": ".",
     "types": [
       "jest",
       "node"

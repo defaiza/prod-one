@@ -42,32 +42,17 @@ export async function GET(req: NextRequest) {
     // Store state and code_verifier in httpOnly, secure cookies
     // These cookies will be sent back by the browser during the callback
     const cookieStore = cookies();
-    const cookieOptions: any = {
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      path: '/',
+      path: '/', // Or scope to /api/x/connect/callback if preferred
       sameSite: 'lax' as const,
       maxAge: 15 * 60, // 15 minutes in seconds
     };
-    
-    // In production, if COOKIE_DOMAIN is set, use it
-    // This helps with subdomain issues
-    if (process.env.NODE_ENV === 'production' && process.env.COOKIE_DOMAIN) {
-      cookieOptions.domain = process.env.COOKIE_DOMAIN;
-    }
-    
-    console.log('[X Connect Initiate] Setting cookies with options:', {
-      ...cookieOptions,
-      state: state.substring(0, 8) + '...',
-      verifier: codeVerifier.substring(0, 8) + '...',
-      environment: process.env.NODE_ENV,
-      cookieDomain: process.env.COOKIE_DOMAIN || 'not set'
-    });
-    
     cookieStore.set('x_oauth_state', state, cookieOptions);
     cookieStore.set('x_pkce_code_verifier', codeVerifier, cookieOptions);
 
-    const scopes = ['users.read', 'follows.read', 'tweet.read', 'offline.access']; // Added offline.access for refresh tokens
+    const scopes = ['users.read', 'follows.read', 'tweet.read']; // Adjust scopes as needed for X API v2
     const authUrl = new URL('https://twitter.com/i/oauth2/authorize');
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('client_id', X_CLIENT_ID);
@@ -76,12 +61,6 @@ export async function GET(req: NextRequest) {
     authUrl.searchParams.set('state', state);
     authUrl.searchParams.set('code_challenge', codeChallenge);
     authUrl.searchParams.set('code_challenge_method', 'S256');
-
-    console.log('[X Connect Initiate] Generated auth URL:', {
-      redirectUri: X_CALLBACK_URL,
-      scopes: scopes.join(', '),
-      statePrefix: state.substring(0, 8) + '...'
-    });
 
     return NextResponse.json({ authorizationUrl: authUrl.toString() });
 

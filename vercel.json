@@ -1,12 +1,4 @@
 {
-  "functions": {
-    "src/app/api/**/*.ts": {
-      "maxDuration": 10
-    },
-    "src/pages/api/**/*.ts": {
-      "maxDuration": 10
-    }
-  },
   "crons": [
     {
       "path": "/api/cron/process-proposals",
@@ -15,10 +7,6 @@
     {
       "path": "/api/cron/agent-policy-sync",
       "schedule": "0 * * * *"
-    },
-    {
-      "path": "/api/cron/quest-lifecycle",
-      "schedule": "*/15 * * * *"
     }
   ]
 } 

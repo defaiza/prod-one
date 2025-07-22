@@ -31,23 +31,13 @@ if (process.env.NODE_ENV === 'development') {
   // In development mode, use a global variable so that the value
   // is preserved across module reloads caused by HMR (Hot Module Replacement).
   if (!global._mongoClientPromise) {
-    const client = new MongoClient(MONGODB_URI!, {
-      maxPoolSize: 10,
-      minPoolSize: 2,
-      maxIdleTimeMS: 10000,
-      serverSelectionTimeoutMS: 5000,
-    });
+    const client = new MongoClient(MONGODB_URI!);
     global._mongoClientPromise = client.connect();
   }
   clientPromise = global._mongoClientPromise;
 } else {
   // In production mode, it's best to not use a global variable.
-  const client = new MongoClient(MONGODB_URI!, {
-    maxPoolSize: 50,
-    minPoolSize: 10,
-    maxIdleTimeMS: 10000,
-    serverSelectionTimeoutMS: 5000,
-  });
+  const client = new MongoClient(MONGODB_URI!);
   clientPromise = client.connect();
 }
 
@@ -66,12 +56,7 @@ export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db
     throw new Error('MONGODB_DB_NAME environment variable is not defined');
   }
 
-  const client = new MongoClient(MONGODB_URI, {
-    maxPoolSize: 50,
-    minPoolSize: 10,
-    maxIdleTimeMS: 10000,
-    serverSelectionTimeoutMS: 5000,
-  });
+  const client = new MongoClient(MONGODB_URI);
   await client.connect();
   const db = client.db(MONGODB_DB_NAME);
 
@@ -106,9 +91,6 @@ export interface UserDocument {
   updatedAt?: Date;
   current_tier_name?: string;
   tier_updated_at?: Date;
-  initialAirdropAmount?: number;
-  totalEstimatedAirdrop?: number;
-  airBasedDefai?: number;
 
   // Agent-related fields
   agentId?: string;
@@ -138,13 +120,10 @@ export interface UserDocument {
 
 export interface ReferralBoost {
   boostId: string;
-  type?: 'percentage_bonus_referrer';
-  boostType?: string; // alias used by some routes
-  value?: number;
-  remainingUses?: number;
-  description?: string;
-  activatedAt?: Date;
-  expiresAt?: Date;
+  type: 'percentage_bonus_referrer';
+  value: number;
+  remainingUses: number;
+  description: string;
 }
 
 export interface ActionDocument {
@@ -186,10 +165,8 @@ export interface SquadInvitationDocument {
   invitationId: string;
   squadId: string;
   squadName: string;
-  invitedByUserWalletAddress?: string;
-  invitedUserWalletAddress?: string;
-  inviterWalletAddress?: string;   // alias used by new invitation routes
-  inviteeWalletAddress?: string;   // alias used by new invitation routes
+  invitedByUserWalletAddress: string;
+  invitedUserWalletAddress: string;
   status: 'pending' | 'accepted' | 'declined' | 'revoked' | 'expired';
   message?: string;
   createdAt: Date;
@@ -204,8 +181,6 @@ export type NotificationType =
   | 'referral_success' 
   | 'referred_by_success' 
   | 'quest_completed_community'
-  | 'quest_failed_community'
-  | 'quest_newly_active'
   | 'quest_reward_received'   
   | 'squad_invite_received'
   | 'squad_invite_accepted'
@@ -219,14 +194,7 @@ export type NotificationType =
   | 'squad_join_request_received' 
   | 'squad_join_request_approved' 
   | 'squad_join_request_rejected' 
-  | 'squad_join_request_cancelled'
   | 'squad_reward_received'  
-  | 'proposal_created'
-  | 'proposal_passed'
-  | 'proposal_failed'
-  | 'proposal_executed'
-  | 'proposal_broadcasted'
-  | 'new_squad_quest'
   | 'milestone_unlocked'     
   | 'badge_earned'           
   | 'rank_up'                
@@ -234,7 +202,7 @@ export type NotificationType =
 
 export interface NotificationDocument {
   _id?: ObjectId;
-  recipientWalletAddress: string;
+  userId: string;
   type: NotificationType;
   title: string;
   message: string;
@@ -243,7 +211,6 @@ export interface NotificationDocument {
   isArchived?: boolean; 
   createdAt: Date;      
   updatedAt: Date;      
-  notificationId: string;
   relatedQuestId?: string;
   relatedQuestTitle?: string;
   relatedSquadId?: string;
@@ -256,19 +223,9 @@ export interface NotificationDocument {
   badgeId?: string;
 }
 
-export interface ISquadJoinRequest {
-  _id?: ObjectId;
-  requestId: string; // UUID
-  squadId: string; // Aligns with SquadDocument.squadId
-  squadName: string; // Denormalized for easier display
-  requestingUserWalletAddress: string;
-  requestingUserXUsername?: string; // Denormalized
-  requestingUserXProfileImageUrl?: string; // Denormalized
-  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
-  message?: string; // Optional message from the requester
-  createdAt: Date;
-  updatedAt: Date;
-}
+// Assuming ISquadJoinRequest and its model file exist as per HEAD branch
+// If SquadJoinRequest.ts doesn't exist or is not intended, this line should be removed.
+export type { ISquadJoinRequest } from '@/models/SquadJoinRequest';
 
 // Interface for the new Meetup Check-in feature
 export interface MeetupCheckInDocument {

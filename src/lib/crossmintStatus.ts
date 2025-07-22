@@ -9,6 +9,7 @@ export const isAuthLoading = (status: string | undefined | null): boolean => {
 };
 
 export const isAuthConnected = (status: string | undefined | null): boolean => {
+  console.log('status..................................................................................', status)
   if (!status) return false;
   return [
     'connected',
@@ -17,8 +18,10 @@ export const isAuthConnected = (status: string | undefined | null): boolean => {
 };
 
 export const isAuthError = (status: string | undefined | null): boolean => {
+  console.log("status...................................................................",status)
   if (!status) return false;
   // Check for various error prefixes or exact matches
+  console.log(status)
   return (
     status.startsWith('error') || 
     status === 'requires_mfa' // Considered an "error" in the sense that flow is blocked

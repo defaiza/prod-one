@@ -4,7 +4,6 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { getPointsService, AwardPointsOptions } from '@/services/points.service';
 import { ObjectId } from 'mongodb';
-import { isAdminSession } from '@/lib/adminUtils';
 
 // Helper function for Admin Audit Logging
 async function logAdminAction(db: any, adminUserId: string, action: string, targetEntityType: string, targetEntityId: string, changes: any, reason?: string) {
@@ -29,7 +28,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   const session: any = await getServerSession(authOptions);
-  if (!isAdminSession(session)) {
+  if (!session?.user?.role || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 
@@ -65,15 +64,13 @@ export async function GET(
     }
 
 
-    // Fetch recent notifications by wallet address (same field used by regular notifications API)
+    // Recent notifications are linked by userId (which should be _id.toString())
     let recentNotifications: any[] = [];
-    if (user.walletAddress) {
-        recentNotifications = await notificationsCollection
-            .find({ recipientWalletAddress: user.walletAddress })
-            .sort({ createdAt: -1 })
-            .limit(10)
-            .toArray();
-    }
+    recentNotifications = await notificationsCollection
+        .find({ userId: user._id.toString() }) // user._id is already an ObjectId here
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .toArray();
     
 
     return NextResponse.json({ user, recentActions, recentNotifications });
@@ -90,7 +87,7 @@ export async function PATCH(
   const session: any = await getServerSession(authOptions);
   const adminUserForLog = session?.user as any;
   
-  if (!isAdminSession({ user: adminUserForLog })) {
+  if (!adminUserForLog?.role || adminUserForLog.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 

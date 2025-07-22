@@ -40,11 +40,7 @@ export const WalletAdapterProvider: FC<Props> = ({ children }) => {
     }
     
     // Log connection information
-    // Log connection information (mask API key for security)
-    const maskedEndpoint = endpoint.includes('api-key=') 
-      ? endpoint.replace(/api-key=[^&]+/, 'api-key=***')
-      : endpoint;
-    console.log(`Initializing Solana connection to: ${maskedEndpoint}`);
+    console.log(`Initializing Solana connection to: ${endpoint}`);
     setConnectionReady(true);
   }, [endpoint]);
 

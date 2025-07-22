@@ -3,7 +3,6 @@ import { connectToDatabase, UserDocument } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { getPointsService, AwardPointsOptions } from '@/services/points.service';
-import { isAdminSession } from '@/lib/adminUtils';
 
 // Helper function for Admin Audit Logging (can be moved to a separate file later)
 async function logAdminAction(db: any, adminUserId: string, action: string, targetEntityType: string, targetEntityId: string, changes: any, reason?: string) {
@@ -28,7 +27,7 @@ export async function GET(
   { params }: { params: { walletAddress: string } }
 ) {
   const session: any = await getServerSession(authOptions);
-  if (!isAdminSession(session)) {
+  if (!session?.user?.role || session.user.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 
@@ -55,12 +54,20 @@ export async function GET(
       .limit(10)
       .toArray();
 
-    // Fetch recent notifications by wallet address (same field used by regular notifications API)
-    const recentNotifications = await notificationsCollection
-      .find({ recipientWalletAddress: walletAddress })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .toArray();
+    let recentNotifications: any[] = [];
+    if (user._id) { 
+        recentNotifications = await notificationsCollection
+        .find({ userId: user._id.toString() })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .toArray();
+    } else if ((user as any).id) {
+        recentNotifications = await notificationsCollection
+        .find({ userId: (user as any).id })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .toArray();
+    }
 
     return NextResponse.json({ user, recentActions, recentNotifications });
   } catch (error) {
@@ -76,7 +83,7 @@ export async function PATCH(
   const session: any = await getServerSession(authOptions);
   const adminUserForLog = session?.user as any;
   
-  if (!isAdminSession(session)) {
+  if (!adminUserForLog?.role || adminUserForLog.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden: Requires admin privileges' }, { status: 403 });
   }
 

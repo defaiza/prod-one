@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase, UserDocument, SquadDocument, ReferralBoost } from '@/lib/mongodb';
 import { withAuth } from '@/middleware/authGuard';
-import { strictRateLimit } from '@/middleware/rateLimiter';
+import { withRateLimit } from '@/middleware/rateLimiter';
 import { getPointsService, AwardPointsOptions } from '@/services/points.service';
 import { AIR } from '@/config/points.config'; // Using AIR for specific point values
 import { rabbitmqService } from '@/services/rabbitmq.service'; // For referral boost event
@@ -18,13 +18,7 @@ const REFERRAL_FRENZY_BOOST_USES = 3;
 const REFERRAL_FRENZY_BOOST_VALUE = 0.5; // 50% bonus
 const REFERRAL_FRENZY_BOOST_TYPE = 'percentage_bonus_referrer';
 
-export const POST = withAuth(async (request: Request, session) => {
-  // Apply rate limiting
-  const rateLimitResponse = await strictRateLimit(request as any);
-  if (rateLimitResponse) {
-    return rateLimitResponse;
-  }
-  
+const baseHandler = withAuth(async (request: Request, session) => {
   try {
     const walletAddress = session.user.walletAddress;
     const xUserId = session.user.xId;
@@ -46,7 +40,7 @@ export const POST = withAuth(async (request: Request, session) => {
       return NextResponse.json({
         message: 'Profile share action already recorded. No new points or boost awarded.',
         currentPoints: user.points,
-        referralBoostActive: user.activeReferralBoosts?.some((boost: ReferralBoost) => (boost.remainingUses ?? 0) > 0) ?? false // Check remainingUses for active
+        referralBoostActive: user.activeReferralBoosts?.some(boost => (boost.remainingUses || 0) > 0) || false // Check remainingUses for active
       });
     }
 
@@ -70,17 +64,17 @@ export const POST = withAuth(async (request: Request, session) => {
     const now = new Date();
     const newBoost: ReferralBoost = {
       boostId: uuidv4(),
-      boostType: REFERRAL_FRENZY_BOOST_TYPE,
+      type: REFERRAL_FRENZY_BOOST_TYPE,
       value: REFERRAL_FRENZY_BOOST_VALUE,
       remainingUses: REFERRAL_FRENZY_BOOST_USES,
       description: REFERRAL_FRENZY_BOOST_DESCRIPTION,
-      activatedAt: now,
-      // Give the boost a generous expiry (e.g., 1 year); adjust as needed
-      expiresAt: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000),
+      // expiresAt and activatedAt are not part of the current mongodb.ts ReferralBoost interface
+      // If they are needed, the interface in mongodb.ts should be updated.
+      // For now, adhering to the existing interface.
     };
 
     // Filter existing boosts - the current logic in mongodb.ts doesn't have an expiry, uses remainingUses
-    const activeReferralBoosts = user.activeReferralBoosts?.filter((b: ReferralBoost) => (b.remainingUses ?? 0) > 0) || [];
+    const activeReferralBoosts = user.activeReferralBoosts?.filter(b => (b.remainingUses || 0) > 0) || [];
     activeReferralBoosts.push(newBoost);
 
     await usersCollection.updateOne(
@@ -117,4 +111,6 @@ export const POST = withAuth(async (request: Request, session) => {
     console.error('Error logging profile share:', error);
     return NextResponse.json({ error: 'Failed to log profile share action' }, { status: 500 });
   }
-}); 
+});
+
+export const POST = withRateLimit(baseHandler); 

@@ -32,6 +32,8 @@ import { useTotalLiquidity } from '@/hooks/useTotalLiquidity';
 import { YIELD_TIERS, poolState, usdtTrxWhirlpool } from '@/constants/constants';
 import { Pool } from "@/components/Pool";
 import SmartWalletBalances from "@/components/SmartWalletBalances";
+import { LandingTextarea } from "@/components/landing-textarea";
+import { LandingChatSessions } from "@/components/landing-chat-sessions";
 
 export const dynamic = 'force-dynamic';
 
@@ -361,6 +363,8 @@ export default function YieldPage() {
   const handleClaimRewards = async () => { /* ... your claim logic ... */ setError("Claiming not fully implemented in this view."); };
   // --- End Staking Handlers ---
 
+  const { step } = useOnboardingStore();
+
   const YieldPageContent = () => {
     const { user: crossmintUser, status: crossmintStatus } = useAuth(); // Get from context
 
@@ -436,7 +440,7 @@ export default function YieldPage() {
             </CardContent>
           </Card>
 
-          {/* AI Agent Control Panel */}
+          {/* AI Agent Control Panel (Yield Agent Card) */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -448,59 +452,71 @@ export default function YieldPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Goal Input */}
-              <div>
-                <label className="block text-sm font-medium mb-1" htmlFor="agent-goal">Agent Goal / Instruction</label>
-                <textarea
-                  id="agent-goal"
-                  value={agentGoal}
-                  onChange={(e) => setAgentGoal(e.target.value)}
-                  rows={3}
-                  className="w-full rounded-md border border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="E.g. Stake 50% of my available LP, harvest rewards daily, and compound earnings."
-                />
-              </div>
-
-              {/* Function Permissions */}
-              <div>
-                <h4 className="text-sm font-medium mb-2">Allowed Functions</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.keys(allowedFunctions).map((fnKey) => (
-                    <label key={fnKey} className="flex items-center space-x-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={allowedFunctions[fnKey]}
-                        onChange={() => toggleFunction(fnKey)}
-                        className="accent-primary"
-                      />
-                      <span className="capitalize">{fnKey}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Control Buttons */}
-              <div className="flex gap-3">
-                <Button onClick={runAgent} disabled={isAgentRunning || !agentGoal.trim()} className="flex items-center gap-1 flex-1">
-                  <Play className="h-4 w-4" />
-                  {isAgentRunning ? "Running..." : "Run Agent"}
-                </Button>
-                <Button onClick={stopAgent} disabled={!isAgentRunning} variant="destructive" className="flex items-center gap-1 flex-1">
-                  <Square className="h-4 w-4" />
-                  Stop Agent
-                </Button>
-              </div>
-
-              {/* Agent Log */}
-              {agentLog.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium mb-1">Agent Log</h4>
-                  <div className="h-32 overflow-auto border border-border rounded-md p-2 bg-muted text-xs space-y-1">
-                    {agentLog.map((msg, idx) => (
-                      <div key={idx}>{msg}</div>
-                    ))}
+              {step === "DONE" ? (
+                <div className="w-full">
+                  <h3 className="text-2xl font-semibold text-center mb-4 text-blue-700">Chat with your DefaiZa Agent</h3>
+                  <div className="mb-6">
+                    <LandingTextarea />
                   </div>
+                  <LandingChatSessions />
                 </div>
+              ) : (
+                <>
+                  {/* Goal Input */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1" htmlFor="agent-goal">Agent Goal / Instruction</label>
+                    <textarea
+                      id="agent-goal"
+                      value={agentGoal}
+                      onChange={(e) => setAgentGoal(e.target.value)}
+                      rows={3}
+                      className="w-full rounded-md border border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="E.g. Stake 50% of my available LP, harvest rewards daily, and compound earnings."
+                    />
+                  </div>
+
+                  {/* Function Permissions */}
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Allowed Functions</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.keys(allowedFunctions).map((fnKey) => (
+                        <label key={fnKey} className="flex items-center space-x-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={allowedFunctions[fnKey]}
+                            onChange={() => toggleFunction(fnKey)}
+                            className="accent-primary"
+                          />
+                          <span className="capitalize">{fnKey}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Control Buttons */}
+                  <div className="flex gap-3">
+                    <Button onClick={runAgent} disabled={isAgentRunning || !agentGoal.trim()} className="flex items-center gap-1 flex-1">
+                      <Play className="h-4 w-4" />
+                      {isAgentRunning ? "Running..." : "Run Agent"}
+                    </Button>
+                    <Button onClick={stopAgent} disabled={!isAgentRunning} variant="destructive" className="flex items-center gap-1 flex-1">
+                      <Square className="h-4 w-4" />
+                      Stop Agent
+                    </Button>
+                  </div>
+
+                  {/* Agent Log */}
+                  {agentLog.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-1">Agent Log</h4>
+                      <div className="h-32 overflow-auto border border-border rounded-md p-2 bg-muted text-xs space-y-1">
+                        {agentLog.map((msg, idx) => (
+                          <div key={idx}>{msg}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

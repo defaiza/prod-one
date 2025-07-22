@@ -55,7 +55,7 @@ function shouldApplyReferralBoost(referrer?: UserDocument): ReferralBoost | unde
     }
     // Find an active boost (e.g., with remaining uses)
     // This logic might need refinement based on how boosts are structured and prioritized
-    return referrer.activeReferralBoosts.find((boost: ReferralBoost) => (boost.remainingUses || 0) > 0);
+    return referrer.activeReferralBoosts.find(boost => (boost.remainingUses || 0) > 0);
 }
 
 export async function POST(request: NextRequest) {
@@ -159,14 +159,6 @@ export async function POST(request: NextRequest) {
                         metadata: { referredUserWallet: walletAddress, referredUserXId: user.xUserId, boost: boostAppliedDetails } // Use user.xUserId
                     });
                     referralBonusAwarded = pointsForReferrer; // To the referrer
-                } else {
-                    // NEW: Handle referrers who have not yet connected a wallet
-                    await pointsService.addPointsByUserId(referrer._id.toString(), pointsForReferrer, {
-                        reason: 'referral:bonus_for_referrer_no_wallet',
-                        actionType: ACTION_REFERRAL_BONUS,
-                        metadata: { referredUserWallet: walletAddress, referredUserXId: user.xUserId, boost: boostAppliedDetails },
-                    });
-                    referralBonusAwarded = pointsForReferrer;
                 }
                 
                 // Mark current user as referred

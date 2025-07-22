@@ -1,5 +1,5 @@
 import amqp from 'amqplib';
-import { rabbitmqConfig } from '../config/rabbitmq.config.js';
+import { rabbitmqConfig } from '../config/rabbitmq.config';
 
 let connection = null;
 let channel = null;

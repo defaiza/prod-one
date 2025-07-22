@@ -100,8 +100,8 @@ export async function POST(request: Request) {
       invitationId,
       squadId,
       squadName: squad.name,
-      inviterWalletAddress: invitingUserWalletAddress,
-      inviteeWalletAddress: targetUserWallet,
+      invitedByUserWalletAddress: invitingUserWalletAddress,
+      invitedUserWalletAddress: targetUserWallet,
       status: 'pending',
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -110,25 +110,16 @@ export async function POST(request: Request) {
     await invitationsCollection.insertOne(newInvitation);
 
     // Create notification for the invited user
-    const notificationTitle = `Squad Invite: ${squad.name}`;
-    const notificationMessage = `@${invitingUserXUsername} invited you to join their squad: "${squad.name}".`;
-    const ctaUrl = `/squads/invitations`; // Or a more specific link to view this invite
-
     await createNotification(
       db,
-      targetUserWallet, // recipientWalletAddress
-      'squad_invite_received', // type
-      notificationTitle,       // title
-      notificationMessage,     // message
-      ctaUrl,                  // ctaUrl
-      undefined,               // relatedQuestId
-      undefined,               // relatedQuestTitle
-      squadId,                 // relatedSquadId
-      squad.name,              // relatedSquadName
-      invitingUserWalletAddress, // relatedUserId (the user who sent the invite)
-      invitingUserXUsername,   // relatedUserName (the name of the user who sent the invite)
-      invitationId             // relatedInvitationId (the ID of the invitation itself)
-      // rewardAmount, rewardCurrency, badgeId are not applicable here
+      targetUserWallet,
+      'squad_invite_received',
+      `You have been invited to join the squad "${squad.name}" by @${invitingUserXUsername}.`,
+      squadId,
+      squad.name,
+      invitingUserWalletAddress,
+      invitingUserXUsername,
+      invitationId
     );
 
     return NextResponse.json({ 

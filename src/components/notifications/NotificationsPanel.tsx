@@ -42,34 +42,9 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
   const [showErrorDetails, setShowErrorDetails] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null); // For click outside to close
   const initialFetchDone = useRef(false); // To track if initial fetch on open has occurred
-  const hasAttemptedMarkReadOnOpenRef = useRef(false); // ADDED: Track if mark as read attempted on open
-
-  const handleClearAllNotifications = async () => {
-    if (!window.confirm("Are you sure you want to clear ALL your notifications? This cannot be undone.")) {
-      return;
-    }
-    setIsLoading(true); // Use panel's isLoading or a dedicated one
-    setError(null);
-    try {
-      const response = await fetch('/api/notifications/all', { method: 'DELETE' });
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Failed to clear notifications');
-      }
-      const result = await response.json();
-      toast.success(result.message || "All notifications cleared!");
-      fetchNotifications(false); // Re-fetch to show empty list
-      onUpdateUnreadCount(0); // Update store immediately
-    } catch (err: any) {
-      console.error("Error in handleClearAllNotifications (Panel):", err);
-      setError(err.message || "Failed to clear all notifications."); // Show error in panel
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Define fetchNotifications first
-  const fetchNotifications = useCallback(async (isInitialOpenFetch = false) => { // Removed attemptMarkAsRead param
+  const fetchNotifications = useCallback(async (isInitialOpenFetch = false, attemptMarkAsRead = true) => { // Added attemptMarkAsRead
     setIsLoading(true);
     setError(null);
     console.log("[Notifications] Fetching notifications...");
@@ -110,75 +85,60 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
   }, [onUpdateUnreadCount]); // Removed markNotificationsAsRead from here
 
   const markNotificationsAsRead = useCallback(async (notificationIds: string[]) => {
-    if (notificationIds.length === 0) return false; // Return a boolean indicating if an update was attempted
+    if (notificationIds.length === 0) return;
     try {
       const response = await fetch('/api/notifications/mark-read', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notificationIds }),
       });
-      // const data = await response.json(); 
-
       if (response.ok) {
-        const newlyReadCount = notificationIds.length;
         setNotifications(prev =>
           prev.map(n => (notificationIds.includes(n.notificationId) ? { ...n, isRead: true } : n))
         );
-        const newLocalUnreadCount = Math.max(0, unreadCount - newlyReadCount);
-        setUnreadCount(newLocalUnreadCount);
-        onUpdateUnreadCount(newLocalUnreadCount); 
-        return true; // Indicate success
+        // Call fetchNotifications to get the latest state from the server,
+        // but without triggering another mark-as-read cycle from within fetchNotifications itself.
+        fetchNotifications(false, false); // isInitialOpenFetch = false, attemptMarkAsRead = false
+        if (notificationIds.length === 1) {
+          toast.info("Notification marked as read.");
+        }
+        // The unread count will be updated by fetchNotifications
       } else {
         toast.error("Failed to mark notifications as read.");
-        return false; // Indicate failure
       }
     } catch (err) {
       toast.error("Error marking notifications as read.");
       console.error("markNotificationsAsRead error:", err);
-      return false; // Indicate failure
     }
-  }, [onUpdateUnreadCount, unreadCount, setNotifications, setUnreadCount]);
+  }, [fetchNotifications]); // Removed onUpdateUnreadCount, only fetchNotifications
 
   useEffect(() => {
     if (isOpen && !initialFetchDone.current) {
-      fetchNotifications(true); // isInitialOpenFetch = true
+      fetchNotifications(true, true); // isInitialOpenFetch = true, attemptMarkAsRead = true
       initialFetchDone.current = true;
-      hasAttemptedMarkReadOnOpenRef.current = false;
     } else if (!isOpen) {
       initialFetchDone.current = false; // Reset for next time panel opens
-      hasAttemptedMarkReadOnOpenRef.current = false; // MODIFIED: Reset when panel closes
     }
   }, [isOpen, fetchNotifications]);
 
-  // Effect to mark unread notifications as read *after* initial fetch and only ONCE per open
+  // Effect to mark unread notifications as read *after* initial fetch
   useEffect(() => {
-    if (isOpen && initialFetchDone.current && notifications.length > 0 && !hasAttemptedMarkReadOnOpenRef.current) {
+    if (isOpen && initialFetchDone.current && notifications.length > 0) {
         const unreadIds = notifications
             .filter(n => !n.isRead)
             .map(n => n.notificationId);
         if (unreadIds.length > 0) {
-            console.log(`[NotificationsPanel] Attempting to mark as read IDs:`, unreadIds, `for wallet: ${sessionStorage.getItem('currentUserWalletAddress')}`); // Assuming you store wallet address in session storage for client-side logging, or derive it differently
-
-            if (typeof markNotificationsAsRead === 'function') {
-                (async () => {
-                    const success = await markNotificationsAsRead(unreadIds);
-                    if (success) { // Only set if the API call was at least successful in responding
-                        hasAttemptedMarkReadOnOpenRef.current = true;
-                    } else {
-                        // If marking failed, we might want to allow another attempt on next interaction or re-open
-                        // For now, we'll still set it to true to prevent loops from continuous failures,
-                        // but this could be refined to allow retries under certain conditions.
-                        hasAttemptedMarkReadOnOpenRef.current = true; 
-                    }
-                })();
+            // Check if markNotificationsAsRead is available to be called
+            // This check is to satisfy linters if they still think markNotificationsAsRead might not be initialized
+            // though due to JS hoisting and useCallback, it should be.
+            if (typeof markNotificationsAsRead === 'function') { 
+                 markNotificationsAsRead(unreadIds);
             }
-        } else {
-           hasAttemptedMarkReadOnOpenRef.current = true; // No unread notifications to mark
         }
     }
   // We only want this to run when `notifications` list updates *after* an initial fetch,
   // and `isOpen` is true. `markNotificationsAsRead` is stable due to useCallback.
-  }, [isOpen, notifications, markNotificationsAsRead]); // Dependency array unchanged for now, logic change is inside
+  }, [isOpen, notifications, markNotificationsAsRead]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -216,7 +176,6 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
 
   // Passed to NotificationItem, uses notificationId which is the client-side consistent ID
   const onMarkIndividualNotificationAsRead = useCallback(async (notificationId: string): Promise<void> => {
-    // Directly call markNotificationsAsRead, which now handles optimistic updates
     await markNotificationsAsRead([notificationId]);
   }, [markNotificationsAsRead]);
 
@@ -246,19 +205,6 @@ export default function NotificationsPanel({ isOpen, onClose, onUpdateUnreadCoun
               <FaTimes />
             </button>
           </div>
-
-          {/* Clear All Notifications Button - FOR TESTING - Panel */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="p-2 border-b border-border text-center">
-              <button
-                onClick={handleClearAllNotifications}
-                disabled={isLoading || notifications.length === 0}
-                className="w-full px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white font-semibold rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Clear All Notifications (Dev Panel)
-              </button>
-            </div>
-          )}
 
           {isLoading && (
             <div className="p-8 flex justify-center items-center">

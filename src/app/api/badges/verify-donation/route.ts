@@ -3,7 +3,7 @@ import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { connectToDatabase, UserDocument } from '@/lib/mongodb';
 import { withAuth } from '@/middleware/authGuard';
 import { createNotification } from '@/lib/notificationUtils';
-import { strictRateLimit } from '@/middleware/rateLimiter';
+import { withRateLimit } from '@/middleware/rateLimiter';
 import { getPointsService, AwardPointsOptions } from '@/services/points.service';
 import { AIR } from '@/config/points.config';
 
@@ -14,13 +14,7 @@ const REQUIRED_DONATION_AMOUNT = 0.1 * LAMPORTS_PER_SOL;
 const DONATION_BADGE_ID = 'generous_donor_badge';
 
 // This API route verifies a donation transaction and awards a badge if valid
-export const POST = withAuth(async (request: Request, session) => {
-  // Apply rate limiting
-  const rateLimitResponse = await strictRateLimit(request as any);
-  if (rateLimitResponse) {
-    return rateLimitResponse;
-  }
-  
+const baseHandler = withAuth(async (request: Request, session) => {
   console.log('[VerifyDonation API] Starting verification process');
   
   const userWalletAddress = session.user.walletAddress;
@@ -196,7 +190,7 @@ export const POST = withAuth(async (request: Request, session) => {
       undefined,
       undefined,
       pointsToAward,
-      AIR.LABEL,
+      'points',
       DONATION_BADGE_ID
     );
     
@@ -212,4 +206,6 @@ export const POST = withAuth(async (request: Request, session) => {
     console.error('Error verifying donation:', error);
     return NextResponse.json({ error: 'Failed to verify donation' }, { status: 500 });
   }
-}); 
+});
+
+export const POST = withRateLimit(baseHandler); 

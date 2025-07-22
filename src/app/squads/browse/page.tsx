@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { SquadDocument } from '@/lib/mongodb';
+import { SquadDocument, ISquadJoinRequest } from '@/lib/mongodb'; // Added ISquadJoinRequest
 import RequestToJoinModal from '@/components/modals/RequestToJoinModal'; // Import the new modal
 import { TOKEN_LABEL_POINTS } from '@/lib/labels';
 
@@ -46,7 +46,7 @@ export default function BrowseSquadsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const leaderboardResponse = await fetch('/api/squads/leaderboard?limit=all');
+      const leaderboardResponse = await fetch('/api/squads/leaderboard');
       if (!leaderboardResponse.ok) {
         throw new Error('Failed to fetch squads list');
       }

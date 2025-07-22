@@ -61,7 +61,7 @@ interface CommunityQuestsBannerProps {
   maxQuestsToShow?: number;
 }
 
-const WEBSOCKET_SERVER_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:3001';
+const WEBSOCKET_SERVER_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'http://localhost:4000';
 
 export default function CommunityQuestsBanner({ maxQuestsToShow = 2 }: CommunityQuestsBannerProps) {
   const [quests, setQuests] = useState<QuestDisplayData[]>([]);

@@ -351,13 +351,8 @@ export function useHomePageLogic() {
   }, [authStatus, userDetailsFetched]);
 
   useEffect(() => {
-    // Check environment variables once they're loaded from API
-    if (envVars && !isEnvLoading) {
-      checkRequiredEnvVars(envVars);
-    } else if (envError) {
-      console.error('[HomePageLogic] Failed to load environment variables:', envError);
-    }
-  }, [envVars, isEnvLoading, envError]);
+    checkRequiredEnvVars();
+  }, []);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -515,28 +510,6 @@ export function useHomePageLogic() {
     }
   }, [wallet.connected, wallet.publicKey, authStatus, isWalletSigningIn, walletSignInAttempted, updateSession]);
 
-  useEffect(() => {
-    let intervalId: any;
-    if (authStatus === 'authenticated' && isRewardsActive) {
-      const fetchLatestPoints = async () => {
-        try {
-          const res = await fetch('/api/users/my-details');
-          const data = await res.json();
-          if (res.ok && typeof data.points === 'number') {
-            setOtherUserData(prev => ({ ...prev, points: data.points }));
-          }
-        } catch (e) {
-          console.warn('[HomePageLogic] points polling failed', e);
-        }
-      };
-      fetchLatestPoints();
-      intervalId = setInterval(fetchLatestPoints, 30000); // 30-sec poll
-    }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [authStatus, isRewardsActive]);
-
   return {
     session,
     authStatus,
@@ -567,7 +540,6 @@ export function useHomePageLogic() {
     setCurrentTotalAirdropForSharing,
     isCheckingDefaiBalance,
     hasSufficientDefai,
-    setHasSufficientDefai,
     showWelcomeModal,
     setShowWelcomeModal,
     isProcessingLinkInvite,

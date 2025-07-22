@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     const newSquadId = uuidv4();
 
     // Merged newSquad object creation:
-    const newSquad: SquadDocument = {
+    const newSquad: Omit<SquadDocument, '_id'> = {
       squadId: newSquadId,
       name: squadName,
       description: description || '',
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
       // avatarImageUrl, bannerImageUrl, settings could be added from squad-goals SquadDocument if desired here
     };
 
-    await squadsCollection.insertOne(newSquad as any);
+    await squadsCollection.insertOne(newSquad);
     console.log("[Create Squad] New squad created:", newSquad.squadId);
 
     // Merged user update:

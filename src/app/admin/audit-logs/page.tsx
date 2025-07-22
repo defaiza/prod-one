@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import { AdminAuditLog } from '@/app/admin/users/page'; // Re-using interface from users page for now
-import { isAdminWallet } from '@/lib/adminUtils';
 
 // Define a more specific type for the logs displayed if needed, or use AdminAuditLog directly
 interface DisplayAuditLog extends AdminAuditLog {}
@@ -63,7 +62,7 @@ export default function AdminAuditLogsPage() {
   ]);
 
   useEffect(() => {
-    if (status === 'authenticated' && isAdminWallet((session?.user as any)?.walletAddress)) {
+    if (status === 'authenticated' && (session?.user as any)?.role === 'admin') {
       fetchAuditLogs(currentPage);
     }
   }, [status, session, currentPage, fetchAuditLogs]);
@@ -82,8 +81,8 @@ export default function AdminAuditLogsPage() {
   };
 
   if (status === 'loading') return <p className="p-10">Loading session...</p>;
-  const userWalletAddress = (session?.user as any)?.walletAddress;
-  if (status !== 'authenticated' || !isAdminWallet(userWalletAddress)) {
+  const userRole = (session?.user as any)?.role;
+  if (status !== 'authenticated' || userRole !== 'admin') {
     return <p className="p-10 text-red-600">Access denied. Admin privileges required.</p>;
   }
 

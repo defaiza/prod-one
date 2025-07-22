@@ -9,15 +9,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-defai-purple text-white hover:bg-defai-purple/90 hover:shadow-[0_0_20px_rgba(192,97,255,0.5)]",
+        default: "bg-[#2563EB] text-white hover:bg-[#2563EB]/90 hover:shadow-[0_0_15px_rgba(37,99,235,0.5)]",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
-          "border border-defai-purple bg-background text-defai-purple hover:bg-defai-purple hover:text-white",
+          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-defai-purple underline-offset-4 hover:underline",
+        link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
         default: "py-3 px-6",

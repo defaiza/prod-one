@@ -1,16 +1,6 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount, TokenAccountNotFoundError } from '@solana/spl-token';
-// import { validateSolanaAddress } from '@/lib/validation';
-
-// Simple inline validation for Solana addresses
-const validateSolanaAddress = (address: string): boolean => {
-  try {
-    new PublicKey(address);
-    return true;
-  } catch {
-    return false;
-  }
-};
+import { validateSolanaAddress } from '@/lib/validation';
 
 const MAX_DECIMALS = 18;
 const MIN_DECIMALS = 0;
@@ -58,8 +48,6 @@ const defaultSecurityConfig: SecurityConfig = {
   maxRetries: 3,
   timeoutMs: 10000 // 10 second timeout
 };
-
-
 
 /**
  * SECURITY: Rate limiting check
@@ -213,43 +201,103 @@ export async function getTokenBalance(
       };
     }
     
-    const ata = await getAssociatedTokenAddress(mint, walletAddress, allowOwnerOffCurve);
-    
-    secureLog(securityConfig.logLevel, 'Checking balance', { 
-      walletAddress: walletString, 
-      ata: ata.toBase58() 
-    });
-    
-    const accountInfo = await getAccount(connection, ata, 'confirmed');
-    const balance = Number(accountInfo.amount) / (10 ** decimals);
-    
-    secureLog(securityConfig.logLevel, 'Balance retrieved', { 
-      walletAddress: walletString,
-      balance: balance
-    });
-    
-    const result = { balance, hasAccount: true };
-    setCacheEntry(cacheKey, result, securityConfig);
-    return result;
-    
-  } catch (error: any) {
-    // Handle token account not found (normal case)
-    if (error instanceof TokenAccountNotFoundError || 
-        error.name === 'TokenAccountNotFoundError' ||
-        error.message?.toLowerCase().includes('could not find account') ||
-        error.message?.toLowerCase().includes('account not found') ||
-        error.message?.toLowerCase().includes('account does not exist')) {
-      
-      secureLog(securityConfig.logLevel, 'Token account not found', { walletAddress: walletString });
-      const result = { balance: 0, hasAccount: false };
-      setCacheEntry(cacheKey, result, securityConfig);
-      return result;
+    // SECURITY: Validate decimals
+    if (decimals < MIN_DECIMALS || decimals > MAX_DECIMALS) {
+      secureLog(securityConfig.logLevel, 'Invalid decimals', { decimals });
+      return {
+        balance: 0,
+        hasAccount: false,
+        error: SANITIZED_ERRORS.INVALID_TOKEN
+      };
     }
     
-    // SECURITY: Don't expose detailed error messages in production
-    secureLog(securityConfig.logLevel, 'Token balance error', { 
-      walletAddress: walletString,
-      error: securityConfig.logLevel === 'none' ? 'Hidden' : error.message 
+    // SECURITY: Get associated token address with timeout
+    let ata: PublicKey;
+    try {
+      ata = await getAssociatedTokenAddress(mint, walletAddress, allowOwnerOffCurve);
+    } catch (error) {
+      secureLog(securityConfig.logLevel, 'Failed to get ATA', { error: error instanceof Error ? error.message : 'Unknown error' });
+      return {
+        balance: 0,
+        hasAccount: false,
+        error: SANITIZED_ERRORS.SERVICE_ERROR
+      };
+    }
+    
+    // SECURITY: Get account info with timeout and retries
+    let accountInfo;
+    let retries = 0;
+    
+    while (retries < securityConfig.maxRetries) {
+      try {
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Timeout')), securityConfig.timeoutMs);
+        });
+        
+        const accountPromise = getAccount(connection, ata);
+        accountInfo = await Promise.race([accountPromise, timeoutPromise]) as any;
+        break; // Success, exit retry loop
+        
+      } catch (error) {
+        retries++;
+        secureLog(securityConfig.logLevel, `Account fetch attempt ${retries} failed`, { 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          retries 
+        });
+        
+        if (retries >= securityConfig.maxRetries) {
+          if (error instanceof TokenAccountNotFoundError) {
+            // Account doesn't exist, which is valid
+            const result = { balance: 0, hasAccount: false };
+            setCacheEntry(cacheKey, result, securityConfig);
+            return result;
+          } else {
+            return {
+              balance: 0,
+              hasAccount: false,
+              error: SANITIZED_ERRORS.NETWORK_ERROR
+            };
+          }
+        }
+        
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries) * 100));
+      }
+    }
+    
+    // SECURITY: Calculate balance safely
+    let balance: number;
+    try {
+      const rawBalance = accountInfo.amount;
+      balance = Number(rawBalance) / Math.pow(10, decimals);
+      
+      // Handle edge cases
+      if (!isFinite(balance)) {
+        balance = 0;
+      }
+    } catch (error) {
+      secureLog(securityConfig.logLevel, 'Balance calculation error', { error: error instanceof Error ? error.message : 'Unknown error' });
+      return {
+        balance: 0,
+        hasAccount: true,
+        error: SANITIZED_ERRORS.SERVICE_ERROR
+      };
+    }
+    
+    const result: TokenBalanceResult = {
+      balance,
+      hasAccount: true
+    };
+    
+    // SECURITY: Cache successful result
+    setCacheEntry(cacheKey, result, securityConfig);
+    
+    return result;
+    
+  } catch (error) {
+    secureLog(securityConfig.logLevel, 'Unexpected error in getTokenBalance', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      walletAddress: walletString 
     });
     
     return {
@@ -261,7 +309,14 @@ export async function getTokenBalance(
 }
 
 /**
- * PRODUCTION-READY: Checks DeFAI token balance with enhanced security
+ * Get DeFAI token balance for a wallet address
+ * Uses the DeFAI token mint address from environment variables
+ * 
+ * @param connection - Solana connection
+ * @param walletAddress - The wallet's public key
+ * @param allowOwnerOffCurve - Whether to allow owner off curve (for smart contracts/PDAs)
+ * @param config - Security configuration options
+ * @returns TokenBalanceResult with DeFAI balance
  */
 export async function getDefaiBalance(
   connection: Connection,
@@ -269,22 +324,35 @@ export async function getDefaiBalance(
   allowOwnerOffCurve: boolean = false,
   config: Partial<SecurityConfig> = {}
 ): Promise<TokenBalanceResult> {
-  const tokenMintAddress = process.env.NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS;
-  const tokenDecimals = parseInt(process.env.NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS || '6', 10);
+  const defaiMintAddress = process.env.NEXT_PUBLIC_DEFAI_TOKEN_MINT;
   
-  if (!tokenMintAddress) {
+  if (!defaiMintAddress) {
+    console.error('NEXT_PUBLIC_DEFAI_TOKEN_MINT environment variable not set');
     return {
       balance: 0,
       hasAccount: false,
-      error: SANITIZED_ERRORS.INVALID_TOKEN
+      error: 'Token configuration not found'
     };
   }
   
-  return getTokenBalance(connection, walletAddress, tokenMintAddress, tokenDecimals, allowOwnerOffCurve, config);
+  return getTokenBalance(
+    connection,
+    walletAddress,
+    defaiMintAddress,
+    9, // DeFAI has 9 decimals
+    allowOwnerOffCurve,
+    config
+  );
 }
 
 /**
- * PRODUCTION-READY: Checks if a wallet has sufficient DeFAI balance with security
+ * Check if a wallet has sufficient DeFAI balance for certain operations
+ * 
+ * @param connection - Solana connection
+ * @param walletAddress - The wallet's public key
+ * @param allowOwnerOffCurve - Whether to allow owner off curve (for smart contracts/PDAs)
+ * @param config - Security configuration options
+ * @returns Object with hasSufficient flag, actual balance, required amount, and any errors
  */
 export async function hasSufficientDefaiBalance(
   connection: Connection,
@@ -294,35 +362,35 @@ export async function hasSufficientDefaiBalance(
 ): Promise<{ hasSufficient: boolean; balance: number; required: number; error?: string }> {
   const requiredAmount = parseInt(process.env.NEXT_PUBLIC_REQUIRED_DEFAI_AMOUNT || '5000', 10);
   
-  // SECURITY: Validate required amount
-  if (!Number.isFinite(requiredAmount) || requiredAmount < 0) {
+  const result = await getDefaiBalance(connection, walletAddress, allowOwnerOffCurve, config);
+  
+  if (result.error) {
     return {
       hasSufficient: false,
       balance: 0,
-      required: 0,
-      error: SANITIZED_ERRORS.INVALID_TOKEN
+      required: requiredAmount,
+      error: result.error
     };
   }
-  
-  const result = await getDefaiBalance(connection, walletAddress, allowOwnerOffCurve, config);
   
   return {
     hasSufficient: result.balance >= requiredAmount,
     balance: result.balance,
-    required: requiredAmount,
-    error: result.error
+    required: requiredAmount
   };
 }
 
 /**
- * SECURITY: Clear cache (useful for testing or manual cache invalidation)
+ * Clear the token balance cache
+ * Useful for testing or when you need fresh data
  */
 export function clearTokenBalanceCache(): void {
   balanceCache.clear();
 }
 
 /**
- * SECURITY: Get cache statistics (useful for monitoring)
+ * Get cache statistics for monitoring
+ * @returns Object with cache size and number of entries
  */
 export function getCacheStats(): { size: number; entries: number } {
   return {

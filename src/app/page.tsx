@@ -16,7 +16,6 @@ import { BellIcon } from '@heroicons/react/24/outline'; // Example icon, install
 import UserAvatar from "@/components/UserAvatar";
 import { PublicKey, Connection } from '@solana/web3.js';
 import { getAssociatedTokenAddress, getAccount } from '@solana/spl-token';
-import { getDefaiBalance, hasSufficientDefaiBalance } from '@/utils/tokenBalance';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useConnection } from '@solana/wallet-adapter-react';
 import { checkRequiredEnvVars } from '@/utils/checkEnv';
@@ -28,7 +27,6 @@ import { AIR } from '@/config/points.config'; // Import AIR config
 import { formatPoints, generateReferralLink, getBaseUrl } from '@/lib/utils'; // Import formatPoints and referral utilities
 import AirdropSnapshotHorizontal from "@/components/dashboard/AirdropSnapshotHorizontal";
 import DashboardActionRow from "@/components/layout/DashboardActionRow";
-import { getRandomShareCopy, formatAirdropShareText } from '@/utils/shareVariations';
 import MiniSquadCard from "@/components/dashboard/MiniSquadCard";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import TopProposalCard from "@/components/dashboard/TopProposalCard";
@@ -167,8 +165,6 @@ export default function HomePage() {
   const { setVisible: setWalletModalVisible } = useWalletModal();
   const walletPromptedRef = useRef(false);
 
-  // const uiState = useUiStateStore(); // Moved to NotificationTestPanel
-
   const handleInitialAirdropCheck = async () => {
     const addressToCheck = typedAddress.trim();
     if (!addressToCheck) {
@@ -267,19 +263,10 @@ export default function HomePage() {
         return;
     }
     const airdropAmountStr = currentTotalAirdropForSharing.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    const siteBaseUrl = getBaseUrl();
+    const siteBaseUrl = "https://squad.defairewards.net";
     const twitterHandle = "DeFAIRewards";
-    const shareUrl = userData?.referralCode ? generateReferralLink(userData.referralCode) : generateReferralLink('d93263c7');
-    
-    // Get random share copy
-    const shareCopy = getRandomShareCopy();
-    const text = formatAirdropShareText(
-      shareCopy.airdropTemplate,
-      airdropAmountStr,
-      twitterHandle,
-      shareUrl
-    );
-    
+    const shareUrl = userData?.referralCode ? `${siteBaseUrl}/?ref=${userData.referralCode}` : `${siteBaseUrl}/?ref=d93263c7`;
+    const text = `I'm getting ${airdropAmountStr} $DEFAI from @${twitterHandle} in the migration! 🚀 My referral link: ${shareUrl} \nGet ready for DEFAI SUMMER - buy $DeFAI now! #DeFAIRewards #TGE #AI #Solana`;
     const hashtags = "DeFAIRewards,TGE,AI,Solana";
     const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&hashtags=${encodeURIComponent(hashtags)}&via=${twitterHandle}`;
     window.open(twitterIntentUrl, '_blank');
@@ -435,36 +422,32 @@ export default function HomePage() {
       .catch(err => console.error("Failed to fetch total community points for dashboard", err));
   }, []);
 
-  // Fetch defaiBalance using the robust token balance utility
+  // Fetch defaiBalance (example, adjust to your actual API/logic if not already in AirdropInfoDisplay a level up)
    useEffect(() => {
     if (wallet.connected && wallet.publicKey && connection) {
       const fetchBalance = async () => {
-        try {
-          const result = await hasSufficientDefaiBalance(connection, wallet.publicKey!);
-          setDefaiBalance(result.balance);
-          setHasSufficientDefai(result.hasSufficient);
-          
-          if (result.error) {
-            console.warn("DeFAI balance fetch warning:", result.error);
+        const tokenMintAddress = process.env.NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS;
+        const tokenDecimals = parseInt(process.env.NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS || '9', 10);
+        if (tokenMintAddress) {
+          try {
+            const mint = new PublicKey(tokenMintAddress);
+            const ata = await getAssociatedTokenAddress(mint, wallet.publicKey!);
+            const accountInfo = await getAccount(connection, ata, 'confirmed');
+            setDefaiBalance(Number(accountInfo.amount) / (10 ** tokenDecimals));
+          } catch (e) {
+            console.warn("Could not fetch DeFAI balance for dashboard snapshot", e);
+            setDefaiBalance(0); // Assume 0 if not found or error
           }
-          
-          console.log(`[HomePage] DeFAI Balance: ${result.balance}, Required: ${result.required}, Sufficient: ${result.hasSufficient}`);
-        } catch (e) {
-          console.warn("Could not fetch DeFAI balance for dashboard snapshot", e);
-          setDefaiBalance(0);
-          setHasSufficientDefai(false);
         }
       };
       fetchBalance();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wallet.connected, wallet.publicKey, connection, setDefaiBalance, setHasSufficientDefai]);
-
-  const showInsufficientBalanceMessage = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === false;
+  }, [wallet.connected, wallet.publicKey, connection, setDefaiBalance]);
 
   if (authStatus === "loading") {
     console.log("[HomePage] Rendering: Loading Session state");
-    return <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground"><p className="text-xl">Loading Session...</p></main>;
+    return <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground"><p className="font-orbitron text-xl">Loading Session...</p></main>;
   }
 
   if (authStatus !== "authenticated") {
@@ -484,7 +467,7 @@ export default function HomePage() {
         {/* Right login panel */}
         <div className="flex flex-col justify-center items-center lg:w-1/2 w-full bg-gradient-to-b from-black to-[#111] text-white px-8 py-12 space-y-8">
           <DeFAILogo className="h-16 w-16" />
-          <h1 className="text-4xl md:text-5xl font-bold text-center">Welcome to DEFAI Rewards</h1>
+          <h1 className="text-4xl md:text-5xl font-orbitron font-bold text-center">Welcome to DEFAI Rewards</h1>
           <p className="text-base md:text-lg text-center max-w-sm">Connect your wallet to start earning rewards.</p>
           <div className="flex flex-col gap-4 w-full max-w-xs items-center">
             <WalletMultiButtonDynamic />
@@ -499,10 +482,10 @@ export default function HomePage() {
     return (
       <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground text-center">
         <DeFAILogo className="h-20 w-20 mb-6" />
-        <h1 className="text-3xl font-bold text-defai-purple mb-4">Almost There!</h1>
+        <h1 className="text-3xl font-bold text-primary mb-4 font-orbitron">Almost There!</h1>
         <p className="text-lg mb-6">Your X account is authenticated. Now, please connect your wallet to activate your DEFAI Rewards account.</p>
         <p className="text-sm text-muted-foreground">The Connect Wallet button is in the header.</p>
-        {wallet.connecting && <p className="text-defai-purple mt-4">Connecting to wallet...</p>}
+        {wallet.connecting && <p className="text-primary mt-4">Connecting to wallet...</p>}
       </main>
     );
   }
@@ -510,12 +493,15 @@ export default function HomePage() {
   console.log("[HomePage] Rendering: Fully Authenticated and Wallet Linked state");
   // Determine if points/actions section should be shown
   const showPointsSection = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === true;
+  // Determine if the "Insufficient Balance" message should be shown
+  const showInsufficientBalanceMessage = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === false;
 
   return (
     <main className="flex flex-col items-center min-h-screen bg-background text-foreground font-sans">
       {/* Header takes full width, AppHeader is sticky */}
       {/* Added pt-16 (or h-16 from header) to main content area if AppHeader isn't setting body padding */}
-            <div className="w-full pt-16 md:pt-20">
+      <div className="w-full pt-16 md:pt-20"> 
+
         {/* Desktop Layout (≥ lg) */}
         {isDesktop ? (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -527,10 +513,10 @@ export default function HomePage() {
                   <div className="flex items-center align-left gap-3">
                     <div className="relative">
                       <div className="text-center">
-                        <h1 className="text-5xl sm:text-6xl font-bold text-defai-purple">
+                        <h1 className="font-orbitron text-5xl sm:text-6xl font-bold text-[#2563EB]">
                           Banking AI Agents
                         </h1>
-                        <h2 className="text-5xl sm:text-6xl font-bold text-black">
+                        <h2 className="font-orbitron text-5xl sm:text-6xl font-bold text-black">
                           Rewarding Humans
                         </h2>
                       </div>
@@ -563,12 +549,6 @@ export default function HomePage() {
                     isLoading={isActivatingRewards || isCheckingDefaiBalance} 
                   />
                 )}
-
-                {/* Conditionally render the NotificationTestPanel for development */} 
-                {/* {process.env.NODE_ENV === 'development' && authStatus === 'authenticated' && wallet.connected && (
-                  <NotificationTestPanel />
-                )} */}
-
                  {/* Desktop: Activate Your Account Section */}
                  {(authStatus === "authenticated" && wallet.connected && (!isRewardsActive || hasSufficientDefai === false)) && (
                   <div className="p-6 bg-white/60 backdrop-blur-md shadow-lg rounded-xl border border-gray-200/50 text-center">
@@ -695,8 +675,8 @@ export default function HomePage() {
                       )}
                     </div>
                     <div className="flex items-center bg-muted/50 p-1.5 rounded-md border border-input">
-                      <input type="text" readOnly value={generateReferralLink(userData.referralCode)} className="text-foreground text-xs break-all bg-transparent outline-none flex-grow p-1" />
-                      <button onClick={() => handleCopyToClipboard(generateReferralLink(userData.referralCode))} className="ml-2 py-1 px-2 text-xs bg-[#2563EB] text-white rounded hover:bg-blue-700 transition-colors">
+                      <input type="text" readOnly value={`https://squad.defairewards.net/?ref=${userData.referralCode}`} className="text-foreground text-xs break-all bg-transparent outline-none flex-grow p-1" />
+                      <button onClick={() => handleCopyToClipboard(`https://squad.defairewards.net/?ref=${userData.referralCode}`)} className="ml-2 py-1 px-2 text-xs bg-[#2563EB] text-white rounded hover:bg-blue-700 transition-colors">
                         Copy
                       </button>
                     </div>
@@ -745,10 +725,10 @@ export default function HomePage() {
             {/* Illustration and Headlines for Mobile (can be simpler or same as desktop) */}
             <div className="relative text-center mt-4 mb-6">
               <div className="text-center mb-6 mt-4">
-                <h1 className="relative z-10 text-4xl font-bold text-defai-purple">
+                <h1 className="relative z-10 font-orbitron text-4xl font-bold text-[#2563EB]">
                   Banking AI Agents
                 </h1>
-                <h2 className="relative z-10 text-4xl font-bold text-black">
+                <h2 className="relative z-10 font-orbitron text-4xl font-bold text-black">
                   Rewarding Humans
                 </h2>
               </div>
@@ -757,8 +737,8 @@ export default function HomePage() {
               </p>
             </div>
             
-            {/* Original Airdrop Checker for non-authed/non-active users on mobile - Temporarily Hidden */}
-            {/* {authStatus !== "authenticated" || !isRewardsActive || !wallet.connected ? (
+            {/* Original Airdrop Checker for non-authed/non-active users on mobile */}
+            {authStatus !== "authenticated" || !isRewardsActive || !wallet.connected ? (
               <div className="w-full mb-6">
                 <div className="relative flex items-center mt-1 mb-4">
                   <input
@@ -789,7 +769,7 @@ export default function HomePage() {
                   </div>
                 )}
               </div>
-            ) : null} */}
+            ) : null}
             
             {/* Mobile: Activate Account Section (similar logic to desktop) */}
             {(authStatus === "authenticated" && wallet.connected && (!isRewardsActive || hasSufficientDefai === false)) && (
@@ -871,14 +851,6 @@ export default function HomePage() {
                   showTitle={false} 
                   defaiBalanceFetched={defaiBalance}
                 />
-
-                {/* Conditionally render the NotificationTestPanel for development - MOBILE */} 
-                {/* {process.env.NODE_ENV === 'development' && authStatus === 'authenticated' && wallet.connected && (
-                  <div className="w-full">
-                    <NotificationTestPanel />
-                  </div>
-                )} */}
-
                 <DashboardActionRow 
                   isRewardsActive={isRewardsActive}
                   currentTotalAirdropForSharing={currentTotalAirdropForSharing}
@@ -906,8 +878,8 @@ export default function HomePage() {
                   <div className="my-3 p-3 bg-card rounded-lg text-center w-full border border-border">
                     <p className="text-sm font-semibold text-foreground mb-1">Your Referral Link:</p>
                     <div className="flex items-center bg-muted p-1.5 rounded border border-input">
-                      <input type="text" readOnly value={generateReferralLink(userData.referralCode)} className="text-foreground text-xs break-all bg-transparent outline-none flex-grow p-0.5" />
-                      <button onClick={() => handleCopyToClipboard(generateReferralLink(userData.referralCode))} className="ml-1.5 py-1 px-1.5 text-xs bg-[#2563EB] text-white rounded hover:bg-blue-700">
+                      <input type="text" readOnly value={`https://squad.defairewards.net/?ref=${userData.referralCode}`} className="text-foreground text-xs break-all bg-transparent outline-none flex-grow p-0.5" />
+                      <button onClick={() => handleCopyToClipboard(`https://squad.defairewards.net/?ref=${userData.referralCode}`)} className="ml-1.5 py-1 px-1.5 text-xs bg-[#2563EB] text-white rounded hover:bg-blue-700">
                         Copy
                       </button>
                     </div>

@@ -50,7 +50,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${orbitron.variable}`} suppressHydrationWarning>
       <head />
-      <body className="flex flex-col min-h-screen bg-background text-foreground">
+      <body className="flex flex-col min-h-screen font-sans bg-background text-foreground">
         {/* <CrossmintProviders> */}
         <SessionProviderWrapper>
           <WalletAdapterProvider>

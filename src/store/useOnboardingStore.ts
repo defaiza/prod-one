@@ -8,6 +8,7 @@ export type OnboardingStep =
   | "FUND_SMART_WALLET"
   | "DEPLOY_AGENT"
   | "SET_RISK"
+  | "CHAT"
   | "DONE";
 
 interface OnboardingState {
