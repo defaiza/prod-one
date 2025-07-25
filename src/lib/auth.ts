@@ -162,10 +162,42 @@ export const authOptions: NextAuthOptions = {
     }),
     // TwitterProvider removed – wallet-only auth
   ],
-debug: process.env.NODE_ENV === 'development', // Enable debug logs only in development
+  debug: process.env.NODE_ENV === 'development', // Enable debug logs only in development
   session: {
-  strategy: "jwt",
+    strategy: "jwt",
     maxAge: 72 * 60 * 60, // 72 hours in seconds
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+  cookies: {
+    sessionToken: {
+      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        domain: process.env.NODE_ENV === 'production' ? '.defairewards.net' : undefined
+      }
+    },
+    callbackUrl: {
+      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}next-auth.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        domain: process.env.NODE_ENV === 'production' ? '.defairewards.net' : undefined
+      }
+    },
+    csrfToken: {
+      name: `${process.env.NODE_ENV === 'production' ? '__Host-' : ''}next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    }
   },
 callbacks: {
     async signIn({ user, account }: any) {

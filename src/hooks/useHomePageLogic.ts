@@ -343,38 +343,35 @@ export function useHomePageLogic() {
           if (res?.error) {
             console.error('[HomePageLogic] Wallet sign-in returned error:', res.error);
             toast.error(`Authentication failed: ${res.error}`);
+            // Reset the attempt flag on error so user can try again
+            setWalletSignInAttempted(false);
           } else if (res?.ok) {
-            console.log('[HomePageLogic] Wallet sign-in successful, updating session...');
-            try {
-              // Add a small delay to ensure the session is ready
-              await new Promise(resolve => setTimeout(resolve, 500));
-              const updateResult = await updateSession(); 
-              console.log('[HomePageLogic] Session updated successfully:', updateResult);
-              
-              // Force a page refresh if session still doesn't have wallet address
-              setTimeout(async () => {
-                const latestSession = await updateSession();
-                if (!latestSession?.user?.walletAddress && wallet.publicKey) {
-                  console.log('[HomePageLogic] Session still missing wallet address, forcing refresh...');
-                  window.location.reload();
-                }
-              }, 1000);
-            } catch (e) {
-              console.warn('[HomePageLogic] updateSession after wallet sign-in failed', e);
-            }
+            console.log('[HomePageLogic] Wallet sign-in successful');
+            // Don't reload immediately - let NextAuth handle the session
+            // Reset states to prevent loops
+            setIsWalletSigningIn(false);
           } else {
              console.warn("[HomePageLogic] Wallet sign-in response was not ok and had no error object:", res);
+             setWalletSignInAttempted(false);
           }
         })
         .catch((err) => {
           console.error('[HomePageLogic] Wallet sign-in failed (exception):', err);
           toast.error('Failed to authenticate wallet. Please try again.');
+          setWalletSignInAttempted(false);
         })
         .finally(() => {
           setIsWalletSigningIn(false);
         });
     }
-  }, [wallet.connected, wallet.publicKey, authStatus, isWalletSigningIn, walletSignInAttempted, updateSession]);
+  }, [wallet.connected, wallet.publicKey, authStatus, isWalletSigningIn, walletSignInAttempted]);
+
+  // Reset walletSignInAttempted when wallet disconnects
+  useEffect(() => {
+    if (!wallet.connected) {
+      setWalletSignInAttempted(false);
+    }
+  }, [wallet.connected]);
 
   useEffect(() => {
     if (authStatus !== 'authenticated' || userDetailsFetched) return;
