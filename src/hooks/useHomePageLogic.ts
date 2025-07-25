@@ -19,6 +19,17 @@ export function useHomePageLogic() {
   const { setVisible: setWalletModalVisible } = useWalletModal();
   const walletPromptedRef = useRef(false);
   
+  // Debug logging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[useHomePageLogic] Current state:', {
+      authStatus,
+      sessionUser: session?.user,
+      walletConnected: wallet.connected,
+      walletAddress: wallet.publicKey?.toBase58(),
+      sessionWalletAddress: session?.user?.walletAddress
+    });
+  }
+
   // Get environment variables via API to bypass Next.js bundling issues
   const { envVars, isLoading: isEnvLoading, error: envError } = useEnv();
 
@@ -68,7 +79,14 @@ export function useHomePageLogic() {
   }, [userAirdrop.totalDefai, defaiBalance]);
 
   const handleWalletConnectSuccess = useCallback(async () => {
+    console.log("[handleWalletConnectSuccess] Called with:", {
+      walletPublicKey: wallet.publicKey?.toBase58(),
+      sessionXId: session?.user?.xId,
+      sessionExists: !!session
+    });
+    
     if (!wallet.publicKey || !session?.user?.xId) {
+      console.log("[handleWalletConnectSuccess] Missing requirements - wallet or xId");
       return;
     }
     toast.info("Linking your wallet to your X account...");
@@ -79,9 +97,13 @@ export function useHomePageLogic() {
         body: JSON.stringify({ walletAddress: wallet.publicKey.toBase58() }),
       });
       const data = await response.json();
+      console.log("[handleWalletConnectSuccess] Link wallet response:", data);
+      
       if (response.ok) {
         toast.success(data.message || "Wallet linked successfully!");
-        await updateSession(); 
+        // Force a hard refresh of the session
+        const updateResult = await updateSession();
+        console.log("[handleWalletConnectSuccess] Session update result:", updateResult);
       } else {
         console.error("[HomePage] handleWalletConnectSuccess: API error linking wallet", data);
         toast.error(data.error || "Failed to link wallet.");
@@ -219,15 +241,18 @@ export function useHomePageLogic() {
   }, [initialReferrer, squadInviteIdFromUrl, fetchMySquadData, fetchPendingInvites, checkDefaiBalance, wallet.publicKey, connection]);
 
   useEffect(() => {
+    // Remove the xId requirement for wallet connection
     if (
       authStatus === "authenticated" &&
-      session?.user?.xId &&
       wallet.connected &&
       wallet.publicKey &&
       !session?.user?.walletAddress && 
       !isActivatingRewards 
     ) {
-      handleWalletConnectSuccess();
+      console.log('[useHomePageLogic] Session authenticated but no wallet in session, updating...');
+      // For wallet-only auth, we don't need to link wallet since it's already the auth method
+      // Just update the session
+      updateSession();
     } else if (
       authStatus === "authenticated" &&
       session?.user?.xId &&
@@ -298,6 +323,13 @@ export function useHomePageLogic() {
       !isWalletSigningIn &&
       !walletSignInAttempted
     ) {
+      console.log('[HomePageLogic] Starting wallet sign-in process...', {
+        walletAddress: wallet.publicKey.toBase58(),
+        authStatus,
+        isWalletSigningIn,
+        walletSignInAttempted
+      });
+      
       setIsWalletSigningIn(true);
       setWalletSignInAttempted(true);
       const determinedChain = "solana"; 
@@ -307,11 +339,26 @@ export function useHomePageLogic() {
         redirect: false 
       })
         .then(async (res) => {
+          console.log('[HomePageLogic] Wallet sign-in response:', res);
           if (res?.error) {
             console.error('[HomePageLogic] Wallet sign-in returned error:', res.error);
+            toast.error(`Authentication failed: ${res.error}`);
           } else if (res?.ok) {
+            console.log('[HomePageLogic] Wallet sign-in successful, updating session...');
             try {
-              await updateSession(); 
+              // Add a small delay to ensure the session is ready
+              await new Promise(resolve => setTimeout(resolve, 500));
+              const updateResult = await updateSession(); 
+              console.log('[HomePageLogic] Session updated successfully:', updateResult);
+              
+              // Force a page refresh if session still doesn't have wallet address
+              setTimeout(async () => {
+                const latestSession = await updateSession();
+                if (!latestSession?.user?.walletAddress && wallet.publicKey) {
+                  console.log('[HomePageLogic] Session still missing wallet address, forcing refresh...');
+                  window.location.reload();
+                }
+              }, 1000);
             } catch (e) {
               console.warn('[HomePageLogic] updateSession after wallet sign-in failed', e);
             }
@@ -321,6 +368,7 @@ export function useHomePageLogic() {
         })
         .catch((err) => {
           console.error('[HomePageLogic] Wallet sign-in failed (exception):', err);
+          toast.error('Failed to authenticate wallet. Please try again.');
         })
         .finally(() => {
           setIsWalletSigningIn(false);

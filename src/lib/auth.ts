@@ -53,16 +53,17 @@ async function logAuthFailure(reason: string, context: Record<string, any> = {})
 }
 
 export async function authorize(credentials, req) {
-  console.log("[NextAuth DEBUG - authorize] Received credentials:", JSON.stringify(credentials, null, 2)); // Log received credentials
+  console.log("[NextAuth DEBUG - authorize] Starting authorization with credentials:", JSON.stringify(credentials, null, 2));
   try {
     const walletAddressRaw = credentials?.walletAddress as string | undefined;
     const chain = credentials?.chain as string | undefined;
-    console.log("[NextAuth DEBUG - authorize] Received credentials:", JSON.stringify(credentials, null, 2)); // Log received credentials
 
     if (!walletAddressRaw) {
+      console.error("[NextAuth DEBUG - authorize] No wallet address provided");
       throw new Error('walletAddress is required');
     }
     const walletAddress = walletAddressRaw.trim();
+    console.log("[NextAuth DEBUG - authorize] Processing wallet address:", walletAddress);
 
     let db: Db | null = null;
     let usersCollection: any = null;
@@ -93,6 +94,7 @@ export async function authorize(credentials, req) {
     const now = new Date();
 
     // Attempt to find existing user by walletAddress
+    console.log("[NextAuth DEBUG - authorize] Finding user by walletAddress:", walletAddress);
     let userDoc = await usersCollection.findOne({ walletAddress });
     if (!userDoc) {
       // Create new user with INITIAL_LOGIN points and referralCode

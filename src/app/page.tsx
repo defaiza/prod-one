@@ -462,6 +462,19 @@ export default function HomePage() {
 
   const showInsufficientBalanceMessage = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === false;
 
+  // Debug logging for authentication state (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log("[HomePage] Auth state debug:", {
+      authStatus,
+      hasSession: !!session,
+      sessionUser: session?.user,
+      walletConnected: wallet.connected,
+      walletAddress: wallet.publicKey?.toBase58(),
+      sessionWalletAddress: session?.user?.walletAddress,
+      isRewardsActive
+    });
+  }
+
   if (authStatus === "loading") {
     console.log("[HomePage] Rendering: Loading Session state");
     return <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground"><p className="text-xl">Loading Session...</p></main>;
@@ -495,13 +508,33 @@ export default function HomePage() {
   }
 
   if (!session?.user?.walletAddress) {
-    console.log("[HomePage] Rendering: X Authenticated, Wallet Not Linked in Session state");
+    console.log("[HomePage] Rendering: Authenticated but Wallet Not in Session state", {
+      sessionUser: session?.user,
+      walletConnected: wallet.connected,
+      walletAddress: wallet.publicKey?.toBase58()
+    });
+    
+    // If wallet is connected but session doesn't have it yet, show loading state
+    if (wallet.connected && wallet.publicKey) {
+      return (
+        <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground text-center">
+          <DeFAILogo className="h-20 w-20 mb-6 animate-pulse" />
+          <h1 className="text-3xl font-bold text-defai-purple mb-4">Setting up your account...</h1>
+          <p className="text-lg mb-6">Updating your session with wallet information.</p>
+          <p className="text-sm text-muted-foreground">This should only take a moment.</p>
+          <div className="mt-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-defai-purple mx-auto"></div>
+          </div>
+        </main>
+      );
+    }
+    
     return (
       <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground text-center">
         <DeFAILogo className="h-20 w-20 mb-6" />
         <h1 className="text-3xl font-bold text-defai-purple mb-4">Almost There!</h1>
-        <p className="text-lg mb-6">Your X account is authenticated. Now, please connect your wallet to activate your DEFAI Rewards account.</p>
-        <p className="text-sm text-muted-foreground">The Connect Wallet button is in the header.</p>
+        <p className="text-lg mb-6">Please connect your wallet to continue.</p>
+        <p className="text-sm text-muted-foreground">Use the Connect Wallet button to proceed.</p>
         {wallet.connecting && <p className="text-defai-purple mt-4">Connecting to wallet...</p>}
       </main>
     );
