@@ -32,6 +32,18 @@ export function useHomePageLogic() {
 
   // Get environment variables via API to bypass Next.js bundling issues
   const { envVars, isLoading: isEnvLoading, error: envError } = useEnv();
+  
+  // Fallback for production if env API fails
+  const getEnvVarWithFallback = (key: string) => {
+    if (envVars && envVars[key]) {
+      return envVars[key];
+    }
+    // Use process.env directly as fallback
+    if (typeof window !== 'undefined' && (window as any)[key]) {
+      return (window as any)[key];
+    }
+    return process.env[key];
+  };
 
   const userAirdrop = useUserAirdrop();
   const [typedAddress, setTypedAddress] = useState('');
@@ -168,7 +180,7 @@ export function useHomePageLogic() {
   }, [wallet.connected, session, isFetchingInvites]);
 
   const checkDefaiBalance = useCallback(async (userPublicKey: PublicKey | null, conn: any) => {
-    if (!userPublicKey || !conn || !envVars) {
+    if (!userPublicKey || !conn) {
         return;
     }
     setIsCheckingDefaiBalance(true);
@@ -191,7 +203,7 @@ export function useHomePageLogic() {
     }
     
     setIsCheckingDefaiBalance(false);
-  }, [envVars]);
+  }, []);
 
   const activateRewardsAndFetchData = useCallback(async (connectedWalletAddress: string, xUserId: string, userDbId: string | undefined) => {
     setActivationAttempted(true);
@@ -336,7 +348,8 @@ export function useHomePageLogic() {
       signIn('wallet', { 
         walletAddress: wallet.publicKey.toBase58(), 
         chain: determinedChain, 
-        redirect: false 
+        redirect: false,
+        callbackUrl: window.location.pathname // Keep user on same page
       })
         .then(async (res) => {
           console.log('[HomePageLogic] Wallet sign-in response:', res);
@@ -346,10 +359,14 @@ export function useHomePageLogic() {
             // Reset the attempt flag on error so user can try again
             setWalletSignInAttempted(false);
           } else if (res?.ok) {
-            console.log('[HomePageLogic] Wallet sign-in successful');
-            // Don't reload immediately - let NextAuth handle the session
-            // Reset states to prevent loops
-            setIsWalletSigningIn(false);
+            console.log('[HomePageLogic] Wallet sign-in successful, reloading page...');
+            // In production, we need to force a reload to pick up the session
+            // This is a workaround for NextAuth session not updating immediately
+            setTimeout(() => {
+              if (typeof window !== 'undefined') {
+                window.location.href = window.location.pathname;
+              }
+            }, 100);
           } else {
              console.warn("[HomePageLogic] Wallet sign-in response was not ok and had no error object:", res);
              setWalletSignInAttempted(false);
@@ -398,9 +415,15 @@ export function useHomePageLogic() {
   useEffect(() => {
     // Check environment variables once they're loaded from API
     if (envVars && !isEnvLoading) {
-      checkRequiredEnvVars(envVars);
+      try {
+        checkRequiredEnvVars(envVars);
+      } catch (e) {
+        console.warn('[HomePageLogic] Environment variable check failed:', e);
+        // Don't block the app if env vars fail in production
+      }
     } else if (envError) {
       console.error('[HomePageLogic] Failed to load environment variables:', envError);
+      // Continue anyway - the app should work without the env API
     }
   }, [envVars, isEnvLoading, envError]);
 
@@ -548,7 +571,8 @@ export function useHomePageLogic() {
       signIn('wallet', { 
         walletAddress: wallet.publicKey.toBase58(), 
         chain: determinedChain, 
-        redirect: false 
+        redirect: false,
+        callbackUrl: window.location.pathname // Keep user on same page
       })
         .then(async (res) => {
           if (res?.ok) {
