@@ -28,14 +28,36 @@ export function useEnv() {
           throw new Error(`Failed to fetch env vars: ${response.status}`);
         }
 
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('API returned non-JSON response');
+        }
+
         const data = await response.json();
-        cachedEnvVars = data; // Cache for subsequent calls
+        cachedEnvVars = data;
         setEnvVars(data);
         setError(null);
-        console.log('[useEnv] Successfully loaded environment variables');
+        console.log('[useEnv] Successfully loaded environment variables from API');
       } catch (err) {
-        console.error('[useEnv] Error fetching environment variables:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        console.warn('[useEnv] API failed, falling back to process.env:', err);
+        
+        // Fallback to process.env for client-side NEXT_PUBLIC_ variables
+        const fallbackEnvVars: EnvVars = {
+          NEXT_PUBLIC_SOLANA_RPC_URL: process.env.NEXT_PUBLIC_SOLANA_RPC_URL,
+          NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS: process.env.NEXT_PUBLIC_DEFAI_TOKEN_MINT_ADDRESS,
+          NEXT_PUBLIC_REQUIRED_DEFAI_AMOUNT: process.env.NEXT_PUBLIC_REQUIRED_DEFAI_AMOUNT,
+          NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS: process.env.NEXT_PUBLIC_DEFAI_TOKEN_DECIMALS,
+        };
+        
+        // Filter out undefined values
+        const filteredEnvVars = Object.fromEntries(
+          Object.entries(fallbackEnvVars).filter(([_, value]) => value !== undefined)
+        ) as EnvVars;
+        
+        cachedEnvVars = filteredEnvVars;
+        setEnvVars(filteredEnvVars);
+        setError(null); // Don't treat fallback as an error
+        console.log('[useEnv] Using fallback environment variables:', filteredEnvVars);
       } finally {
         setIsLoading(false);
       }
@@ -49,5 +71,5 @@ export function useEnv() {
 
 // Utility function to get specific env var with fallback
 export function getEnvVar(key: keyof EnvVars, envVars: EnvVars | null): string | undefined {
-  return envVars?.[key];
+  return envVars?.[key] || process.env[key];
 } 

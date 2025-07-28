@@ -80,6 +80,7 @@ export function useHomePageLogic() {
     initialAirdropAmount: userAirdrop.initialDefai,
   };
 
+  // Simplified airdrop sharing calculation
   useEffect(() => {
     if (userAirdrop.totalDefai !== null) {
         setCurrentTotalAirdropForSharing(userAirdrop.totalDefai + (defaiBalance || 0));
@@ -97,11 +98,12 @@ export function useHomePageLogic() {
       sessionExists: !!session
     });
     
-    if (!wallet.publicKey || !session?.user?.xId) {
-      console.log("[handleWalletConnectSuccess] Missing requirements - wallet or xId");
+    if (!wallet.publicKey) {
+      console.log("[handleWalletConnectSuccess] Missing wallet public key");
       return;
     }
-    toast.info("Linking your wallet to your X account...");
+    
+    toast.info("Linking your wallet to your account...");
     try {
       const response = await fetch('/api/users/link-wallet', {
         method: 'POST',
@@ -113,18 +115,17 @@ export function useHomePageLogic() {
       
       if (response.ok) {
         toast.success(data.message || "Wallet linked successfully!");
-        // Force a hard refresh of the session
-        const updateResult = await updateSession();
-        console.log("[handleWalletConnectSuccess] Session update result:", updateResult);
+        // Force a session update
+        await updateSession();
       } else {
-        console.error("[HomePage] handleWalletConnectSuccess: API error linking wallet", data);
+        console.error("[handleWalletConnectSuccess] API error linking wallet", data);
         toast.error(data.error || "Failed to link wallet.");
       }
     } catch (error) {
-      console.error("[HomePage] handleWalletConnectSuccess: Exception linking wallet", error);
+      console.error("[handleWalletConnectSuccess] Exception linking wallet", error);
       toast.error("An error occurred while linking your wallet.");
     }
-  }, [wallet.publicKey, session, updateSession]);
+  }, [wallet.publicKey, updateSession]);
 
   const fetchMySquadData = useCallback(async (userWalletAddress: string | null | undefined) => {
     if (!userWalletAddress || isFetchingSquad || userCheckedNoSquad) return;
@@ -142,24 +143,21 @@ export function useHomePageLogic() {
         }
       } else {
         const errorData = await response.json();
-        console.error("[HomePage] Failed to fetch squad data:", errorData.error || response.statusText);
+        console.error("[fetchMySquadData] Failed to fetch squad data:", errorData.error || response.statusText);
         setMySquadData(null);
         if (response.status === 404) {
           setUserCheckedNoSquad(true);
         }
       }
     } catch (error) {
-      console.error("[HomePage] Error fetching squad data:", error);
+      console.error("[fetchMySquadData] Error fetching squad data:", error);
       setMySquadData(null);
     }
     setIsFetchingSquad(false);
   }, [isFetchingSquad, userCheckedNoSquad]);
 
   const fetchPendingInvites = useCallback(async () => {
-    if (!wallet.connected || !session || !session.user?.xId) {
-        return;
-    }
-    if(isFetchingInvites) {
+    if (!wallet.connected || !session || !session.user?.xId || isFetchingInvites) {
         return;
     }
     setIsFetchingInvites(true);
@@ -169,18 +167,18 @@ export function useHomePageLogic() {
         const data = await response.json();
         setPendingInvites(data.invitations || []);
       } else {
-        console.error("[HomePage] fetchPendingInvites: API error", await response.text());
+        console.error("[fetchPendingInvites] API error", await response.text());
         setPendingInvites([]);
       }
     } catch (error) {
-      console.error("[HomePage] fetchPendingInvites: Exception", error);
+      console.error("[fetchPendingInvites] Exception", error);
       setPendingInvites([]);
     }
     setIsFetchingInvites(false);
   }, [wallet.connected, session, isFetchingInvites]);
 
   const checkDefaiBalance = useCallback(async (userPublicKey: PublicKey | null, conn: any) => {
-    if (!userPublicKey || !conn) {
+    if (!userPublicKey || !conn || isCheckingDefaiBalance) {
         return;
     }
     setIsCheckingDefaiBalance(true);
@@ -203,20 +201,23 @@ export function useHomePageLogic() {
     }
     
     setIsCheckingDefaiBalance(false);
-  }, []);
+  }, [isCheckingDefaiBalance]);
 
-  const activateRewardsAndFetchData = useCallback(async (connectedWalletAddress: string, xUserId: string, userDbId: string | undefined) => {
+  const activateRewardsAndFetchData = useCallback(async (connectedWalletAddress: string, xUserId: string | null, userDbId: string | undefined) => {
+    if (isActivatingRewards || activationAttempted) return;
+    
     setActivationAttempted(true);
     setIsActivatingRewards(true);
     const referralCodeToUse = initialReferrer;
     toast.info("Activating your DeFAI Rewards account...");
+    
     try {
       const response = await fetch('/api/users/activate-rewards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           walletAddress: connectedWalletAddress, 
-          xUserId: xUserId, 
+          xUserId: xUserId || null,
           userDbId: userDbId, 
           referredByCode: referralCodeToUse,
           squadInviteIdFromUrl: squadInviteIdFromUrl 
@@ -232,6 +233,9 @@ export function useHomePageLogic() {
             squadId: userFromResponse.squadId,
         });
         setIsRewardsActive(true);
+        toast.success("Rewards account activated!");
+        
+        // Fetch additional data
         if (connectedWalletAddress) {
           fetchMySquadData(connectedWalletAddress);
           fetchPendingInvites();
@@ -240,156 +244,167 @@ export function useHomePageLogic() {
           checkDefaiBalance(wallet.publicKey, connection);
         }
       } else {
-        console.error("[HomePage] activateRewardsAndFetchData: API error", data);
+        console.error("[activateRewardsAndFetchData] API error", data);
+        toast.error(data.error || "Failed to activate rewards account");
         setIsRewardsActive(false);
         setOtherUserData({});
       }
     } catch (error) {
-      console.error("[HomePage] activateRewardsAndFetchData: Exception", error);
+      console.error("[activateRewardsAndFetchData] Exception", error);
+      toast.error("An error occurred while activating your account");
       setIsRewardsActive(false);
       setOtherUserData({});
     }
     setIsActivatingRewards(false);
-  }, [initialReferrer, squadInviteIdFromUrl, fetchMySquadData, fetchPendingInvites, checkDefaiBalance, wallet.publicKey, connection]);
+  }, [initialReferrer, squadInviteIdFromUrl, fetchMySquadData, fetchPendingInvites, checkDefaiBalance, wallet.publicKey, connection, isActivatingRewards, activationAttempted]);
 
+  // SIMPLIFIED: Main authentication and wallet connection handler
   useEffect(() => {
-    // Remove the xId requirement for wallet connection
-    if (
-      authStatus === "authenticated" &&
-      wallet.connected &&
-      wallet.publicKey &&
-      !session?.user?.walletAddress && 
-      !isActivatingRewards 
-    ) {
-      console.log('[useHomePageLogic] Session authenticated but no wallet in session, updating...');
-      // For wallet-only auth, we don't need to link wallet since it's already the auth method
-      // Just update the session
-      updateSession();
-    } else if (
-      authStatus === "authenticated" &&
-      session?.user?.xId &&
-      session?.user?.walletAddress && 
-      wallet.connected &&
-      wallet.publicKey &&
-      !isRewardsActive && 
-      !isActivatingRewards &&
-      !activationAttempted 
-    ) {
-      activateRewardsAndFetchData(
-        wallet.publicKey.toBase58(),
-        session.user.xId,
-        session.user.dbId
-      );
-    } else if (
-      authStatus === "authenticated" &&
-      wallet.connected &&
-      wallet.publicKey &&
-      session?.user?.walletAddress &&
-      isRewardsActive &&
-      hasSufficientDefai === null && 
-      !isCheckingDefaiBalance
-    ) {
-      checkDefaiBalance(wallet.publicKey, connection);
-    } else if (
-      authStatus === "authenticated" &&
-      wallet.connected &&
-      session?.user?.walletAddress &&
-      isRewardsActive && 
-      !isFetchingInvites 
-    ) {
-      fetchPendingInvites();
-    }
-
-    if (authStatus === "authenticated" && !wallet.connected && isRewardsActive) {
-      setIsRewardsActive(false);
-      setOtherUserData({}); 
-      setMySquadData(null);
-      setUserCheckedNoSquad(false);
-      setHasSufficientDefai(null);
-    }
-  }, [
-    authStatus,
-    session,
-    wallet.connected,
-    wallet.publicKey,
-    isRewardsActive,
-    isActivatingRewards,
-    activationAttempted,
-    handleWalletConnectSuccess,
-    activateRewardsAndFetchData,
-    fetchMySquadData, 
-    fetchPendingInvites,
-    checkDefaiBalance,
-    hasSufficientDefai,
-    isCheckingDefaiBalance,
-    isFetchingInvites,
-    connection,
-    userAirdrop.isLoading,
-  ]);
-
-  useEffect(() => {
-    if (
-      wallet.connected &&
-      wallet.publicKey &&
-      authStatus !== 'authenticated' &&
-      !isWalletSigningIn &&
-      !walletSignInAttempted
-    ) {
-      console.log('[HomePageLogic] Starting wallet sign-in process...', {
-        walletAddress: wallet.publicKey.toBase58(),
-        authStatus,
-        isWalletSigningIn,
-        walletSignInAttempted
-      });
-      
-      setIsWalletSigningIn(true);
-      setWalletSignInAttempted(true);
-      const determinedChain = "solana"; 
-      signIn('wallet', { 
-        walletAddress: wallet.publicKey.toBase58(), 
-        chain: determinedChain, 
-        redirect: false,
-        callbackUrl: window.location.pathname // Keep user on same page
-      })
-        .then(async (res) => {
-          console.log('[HomePageLogic] Wallet sign-in response:', res);
-          if (res?.error) {
-            console.error('[HomePageLogic] Wallet sign-in returned error:', res.error);
-            toast.error(`Authentication failed: ${res.error}`);
-            // Reset the attempt flag on error so user can try again
+    const handleWalletAuth = async () => {
+      // Case 1: Wallet connected but not authenticated - sign in
+      if (wallet.connected && wallet.publicKey && authStatus !== "authenticated" && !isWalletSigningIn && !walletSignInAttempted) {
+        console.log('[useHomePageLogic] Starting wallet sign-in...');
+        setIsWalletSigningIn(true);
+        setWalletSignInAttempted(true);
+        
+        try {
+          const result = await signIn('wallet', { 
+            walletAddress: wallet.publicKey.toBase58(), 
+            chain: "solana", 
+            redirect: false,
+            callbackUrl: window.location.pathname
+          });
+          
+          if (result?.error) {
+            console.error('[useHomePageLogic] Sign-in error:', result.error);
+            toast.error(`Authentication failed: ${result.error}`);
             setWalletSignInAttempted(false);
-          } else if (res?.ok) {
-            console.log('[HomePageLogic] Wallet sign-in successful, reloading page...');
-            // In production, we need to force a reload to pick up the session
-            // This is a workaround for NextAuth session not updating immediately
+          } else if (result?.ok) {
+            console.log('[useHomePageLogic] Sign-in successful');
+            // Force page reload for session update
             setTimeout(() => {
               if (typeof window !== 'undefined') {
                 window.location.href = window.location.pathname;
               }
-            }, 100);
-          } else {
-             console.warn("[HomePageLogic] Wallet sign-in response was not ok and had no error object:", res);
-             setWalletSignInAttempted(false);
+            }, 500);
           }
-        })
-        .catch((err) => {
-          console.error('[HomePageLogic] Wallet sign-in failed (exception):', err);
+        } catch (err) {
+          console.error('[useHomePageLogic] Sign-in exception:', err);
           toast.error('Failed to authenticate wallet. Please try again.');
           setWalletSignInAttempted(false);
-        })
-        .finally(() => {
-          setIsWalletSigningIn(false);
-        });
-    }
-  }, [wallet.connected, wallet.publicKey, authStatus, isWalletSigningIn, walletSignInAttempted]);
+        }
+        setIsWalletSigningIn(false);
+        return;
+      }
 
-  // Reset walletSignInAttempted when wallet disconnects
+      // Case 2: Authenticated but wallet not in session - link wallet
+      if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && !session?.user?.walletAddress && !isActivatingRewards) {
+        console.log('[useHomePageLogic] Linking wallet to session...');
+        await handleWalletConnectSuccess();
+        return;
+      }
+
+      // Case 3: Authenticated with wallet in session but rewards not active - activate rewards
+      if (authStatus === "authenticated" && session?.user?.walletAddress && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards && !activationAttempted) {
+        console.log('[useHomePageLogic] Activating rewards...');
+        await activateRewardsAndFetchData(
+          wallet.publicKey.toBase58(),
+          session.user.xId || null,
+          session.user.dbId
+        );
+        return;
+      }
+
+      // Case 4: Everything ready, check DeFAI balance if needed
+      if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && isRewardsActive && hasSufficientDefai === null && !isCheckingDefaiBalance) {
+        console.log('[useHomePageLogic] Checking DeFAI balance...');
+        checkDefaiBalance(wallet.publicKey, connection);
+        return;
+      }
+
+      // Case 5: Fetch pending invites for authenticated users with X auth
+      if (authStatus === "authenticated" && wallet.connected && session?.user?.xId && isRewardsActive && !isFetchingInvites && pendingInvites.length === 0) {
+        console.log('[useHomePageLogic] Fetching pending invites...');
+        fetchPendingInvites();
+        return;
+      }
+    };
+
+    handleWalletAuth();
+  }, [
+    authStatus,
+    wallet.connected,
+    wallet.publicKey,
+    session?.user?.walletAddress,
+    session?.user?.xId,
+    session?.user?.dbId,
+    isRewardsActive,
+    isActivatingRewards,
+    activationAttempted,
+    isWalletSigningIn,
+    walletSignInAttempted,
+    hasSufficientDefai,
+    isCheckingDefaiBalance,
+    isFetchingInvites,
+    pendingInvites.length,
+    handleWalletConnectSuccess,
+    activateRewardsAndFetchData,
+    checkDefaiBalance,
+    fetchPendingInvites,
+    connection
+  ]);
+
+  // Reset state when wallet disconnects
   useEffect(() => {
     if (!wallet.connected) {
       setWalletSignInAttempted(false);
+      setPrevWalletAddress(null);
+      setActivationAttempted(false);
+      setIsRewardsActive(false);
+      setOtherUserData({});
+      setMySquadData(null);
+      setUserCheckedNoSquad(false);
+      setHasSufficientDefai(null);
+      setPendingInvites([]);
+      setDefaiBalance(null);
     }
   }, [wallet.connected]);
 
+  // Handle wallet address changes
+  useEffect(() => {
+    const currentAddress = wallet.publicKey ? wallet.publicKey.toBase58() : null;
+    if (currentAddress && currentAddress !== prevWalletAddress) {
+      console.log('[useHomePageLogic] Wallet address changed, resetting state');
+      setPrevWalletAddress(currentAddress);
+      setUserCheckedNoSquad(false);
+      setActivationAttempted(false);
+      setIsRewardsActive(false);
+      setOtherUserData({});
+      setMySquadData(null);
+      setHasSufficientDefai(null);
+      setPendingInvites([]);
+      setWalletSignInAttempted(false);
+    }
+  }, [wallet.publicKey, prevWalletAddress]);
+
+  // Initialize URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    if (refCode) {
+       localStorage.setItem('referralCode', refCode);
+       setInitialReferrer(refCode);
+    } else {
+       const savedRefCode = localStorage.getItem('referralCode');
+       if (savedRefCode) setInitialReferrer(savedRefCode);
+    }
+    const squadInviteParam = urlParams.get('squadInvite');
+    if (squadInviteParam) {
+      setSquadInviteIdFromUrl(squadInviteParam);
+    }
+  }, []);
+
+  // Fetch user details when authenticated
   useEffect(() => {
     if (authStatus !== 'authenticated' || userDetailsFetched) return;
     (async () => {
@@ -407,61 +422,25 @@ export function useHomePageLogic() {
           setUserDetailsFetched(true);
         }
       } catch (e) {
-        console.warn('[HomePageLogic] Unable to fetch my-details:', e);
+        console.warn('[useHomePageLogic] Unable to fetch my-details:', e);
       }
     })();
   }, [authStatus, userDetailsFetched]);
 
+  // Check environment variables
   useEffect(() => {
-    // Check environment variables once they're loaded from API
     if (envVars && !isEnvLoading) {
       try {
         checkRequiredEnvVars(envVars);
       } catch (e) {
-        console.warn('[HomePageLogic] Environment variable check failed:', e);
-        // Don't block the app if env vars fail in production
+        console.warn('[useHomePageLogic] Environment variable check failed:', e);
       }
     } else if (envError) {
-      console.error('[HomePageLogic] Failed to load environment variables:', envError);
-      // Continue anyway - the app should work without the env API
+      console.error('[useHomePageLogic] Failed to load environment variables:', envError);
     }
   }, [envVars, isEnvLoading, envError]);
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const refCode = urlParams.get('ref');
-    if (refCode) {
-       localStorage.setItem('referralCode', refCode);
-       setInitialReferrer(refCode);
-    } else {
-       const savedRefCode = localStorage.getItem('referralCode');
-       if (savedRefCode) setInitialReferrer(savedRefCode);
-    }
-    const squadInviteParam = urlParams.get('squadInvite');
-    if (squadInviteParam) {
-      setSquadInviteIdFromUrl(squadInviteParam);
-    }
-  }, []);
-
-  useEffect(() => {
-    const currentAddress = wallet.publicKey ? wallet.publicKey.toBase58() : null;
-    if (!wallet.connected) {
-      setPrevWalletAddress(null);
-      setActivationAttempted(false); 
-      return;
-    }
-    if (currentAddress && currentAddress !== prevWalletAddress) {
-      setPrevWalletAddress(currentAddress);
-      setUserCheckedNoSquad(false); 
-      setActivationAttempted(false); 
-      setIsRewardsActive(false); 
-      setOtherUserData({});      
-      setMySquadData(null);
-      setHasSufficientDefai(null); 
-      setPendingInvites([]);
-    }
-  }, [wallet.connected, wallet.publicKey, prevWalletAddress]);
-
+  // Initialize desktop detection
   useEffect(() => {
     const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024);
     checkDesktop();
@@ -469,6 +448,7 @@ export function useHomePageLogic() {
     return () => window.removeEventListener('resize', checkDesktop);
   }, []);
 
+  // Fetch total community points
   useEffect(() => {
     fetch('/api/stats/total-points')
       .then(async res => {
@@ -494,12 +474,12 @@ export function useHomePageLogic() {
       try {
         await wallet.disconnect();
       } catch (e) {
-        console.error("[HomePageLogic] Error disconnecting wallet:", e);
-        toast.error("Failed to disconnect wallet.");
+        console.error("[handleFullLogout] Error disconnecting wallet:", e);
       }
     }
     try {
       await nextAuthSignOut({ redirect: false, callbackUrl: '/' }); 
+      // Reset all state
       setOtherUserData({}); 
       setMySquadData(null);
       setUserCheckedNoSquad(false);
@@ -509,81 +489,45 @@ export function useHomePageLogic() {
       setIsRewardsActive(false); 
       setActivationAttempted(false); 
       setWalletSignInAttempted(false);
+      setUserDetailsFetched(false);
       sessionStorage.setItem('logoutInProgress', 'true');
       window.location.href = '/';
     } catch (e) {
-      console.error("[HomePageLogic] Error during NextAuth signOut:", e);
+      console.error("[handleFullLogout] Error during signOut:", e);
       toast.error("Error signing out.");
       if (window.location.pathname !== '/') {
         window.location.href = '/';
       }
     }
-  }, [
-    wallet, 
-    setOtherUserData, 
-    setMySquadData, 
-    setUserCheckedNoSquad, 
-    setHasSufficientDefai, 
-    setPendingInvites, 
-    setDefaiBalance, 
-    setIsRewardsActive, 
-    setActivationAttempted, 
-    setWalletSignInAttempted
-  ]);
+  }, [wallet]);
 
-  useEffect(() => {
-    if (authStatus === "unauthenticated") {
-      setWalletSignInAttempted(false);
-    }
-  }, [authStatus]);
-
+  // Auto-prompt wallet modal after authentication
   useEffect(() => {
     const wasLoggingOut = sessionStorage.getItem('logoutInProgress') === 'true';
     if (wasLoggingOut) {
       sessionStorage.removeItem('logoutInProgress');
-      if (typeof setWalletModalVisible === 'function') { setWalletModalVisible(false); }
+      if (typeof setWalletModalVisible === 'function') { 
+        setWalletModalVisible(false); 
+      }
       walletPromptedRef.current = true; 
       return; 
     }
+    
     if (authStatus === "authenticated" && !wallet.connected && !wallet.connecting && !walletPromptedRef.current) {
       walletPromptedRef.current = true;
-      if (typeof setWalletModalVisible === 'function') { setTimeout(() => setWalletModalVisible(true), 100); }
-       else { console.error("[HomePageLogic WalletModalEffect] setWalletModalVisible is not a function."); }
+      if (typeof setWalletModalVisible === 'function') { 
+        setTimeout(() => setWalletModalVisible(true), 100); 
+      }
     }
+    
     if (wallet.connected) {
-        walletPromptedRef.current = false;
+      walletPromptedRef.current = false;
     } else if (authStatus === "unauthenticated" && !wasLoggingOut) { 
-        walletPromptedRef.current = false;
+      walletPromptedRef.current = false;
     }
   }, [authStatus, wallet.connected, wallet.connecting, setWalletModalVisible]);
 
-  useEffect(() => {
-    if (
-      wallet.connected &&
-      wallet.publicKey &&
-      authStatus !== 'authenticated' && 
-      !isWalletSigningIn &&
-      !walletSignInAttempted        
-    ) {
-      setIsWalletSigningIn(true);
-      setWalletSignInAttempted(true); 
-      const determinedChain = "solana"; 
-      signIn('wallet', { 
-        walletAddress: wallet.publicKey.toBase58(), 
-        chain: determinedChain, 
-        redirect: false,
-        callbackUrl: window.location.pathname // Keep user on same page
-      })
-        .then(async (res) => {
-          if (res?.ok) {
-            await updateSession(); 
-          } else { /* handle error/non-ok */ }
-        })
-        .catch((err) => { console.error('[HomePageLogic AutoSignInEffect] signIn exception:', err); })
-        .finally(() => { setIsWalletSigningIn(false); });
-    }
-  }, [wallet.connected, wallet.publicKey, authStatus, isWalletSigningIn, walletSignInAttempted, updateSession]);
-
+  // Periodic points polling for active users
   useEffect(() => {
     let intervalId: any;
     if (authStatus === 'authenticated' && isRewardsActive) {
@@ -595,7 +539,7 @@ export function useHomePageLogic() {
             setOtherUserData(prev => ({ ...prev, points: data.points }));
           }
         } catch (e) {
-          console.warn('[HomePageLogic] points polling failed', e);
+          console.warn('[useHomePageLogic] points polling failed', e);
         }
       };
       fetchLatestPoints();
@@ -643,7 +587,9 @@ export function useHomePageLogic() {
     setIsProcessingLinkInvite,
     activationAttempted,
     isDesktop,
+    setIsDesktop,
     totalCommunityPoints,
+    setTotalCommunityPoints,
     defaiBalance,
     setDefaiBalance,
     handleWalletConnectSuccess,

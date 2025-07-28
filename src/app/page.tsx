@@ -36,6 +36,7 @@ import SquadGoalQuestCard from "@/components/dashboard/SquadGoalQuestCard";
 import { useUserAirdrop, UserAirdropData as UserAirdropHookData } from '@/hooks/useUserAirdrop'; // Explicitly import type
 import ConnectXButton from '@/components/xauth/ConnectXButton'; // Updated path
 import VerifyFollowButton from '@/components/xauth/VerifyFollowButton'; // Updated path
+import ErrorBoundary from '@/components/ErrorBoundary';
 // import NotificationTestPanel from '@/components/dev/NotificationTestPanel'; // <<<< IMPORT NEW COMPONENT
 
 // Dynamically import WalletMultiButton
@@ -212,8 +213,13 @@ export default function HomePage() {
   };
   
   const logSocialAction = async (actionType: 'shared_on_x' | 'followed_on_x' | 'joined_telegram') => {
-    if (authStatus !== "authenticated" || !session?.user?.xId) {
-      toast.error("Please log in with X first.");
+    if (authStatus !== "authenticated") {
+      toast.error("Please connect your wallet first.");
+      return;
+    }
+    // X auth is only required for X-specific actions
+    if ((actionType === 'shared_on_x' || actionType === 'followed_on_x') && !session?.user?.xId) {
+      toast.error("Please connect your X account to perform this action.");
       return;
     }
     // Wallet connection is not strictly required to log some social actions if they are tied to xID primarily,
@@ -257,8 +263,12 @@ export default function HomePage() {
   };
 
   const handleShareToX = () => {
-    if (authStatus !== "authenticated" || !session?.user?.xId || !isRewardsActive) {
-        toast.info("Log in with X and activate rewards to share.");
+    if (authStatus !== "authenticated" || !isRewardsActive) {
+        toast.info("Connect wallet and activate rewards to share.");
+        return;
+    }
+    if (!session?.user?.xId) {
+        toast.info("Connect your X account to share on X.");
         return;
     }
     // Use the new state variable for the total airdrop amount for sharing
@@ -541,8 +551,8 @@ export default function HomePage() {
   }
   
   console.log("[HomePage] Rendering: Fully Authenticated and Wallet Linked state");
-  // Determine if points/actions section should be shown
-  const showPointsSection = authStatus === "authenticated" && wallet.connected && isRewardsActive && userData && hasSufficientDefai === true;
+  // Determine if points/actions section should be shown - X auth is optional
+  const showPointsSection = authStatus === "authenticated" && wallet.connected && isRewardsActive && hasSufficientDefai === true;
 
   return (
     <main className="flex flex-col items-center min-h-screen bg-background text-foreground font-sans">
@@ -555,6 +565,7 @@ export default function HomePage() {
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 xl:gap-8">
               {/* === Left Column === */}
               <div className="flex flex-col space-y-6 animate-fadeUp">
+                <ErrorBoundary fallback={<div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center"><p>Loading dashboard components...</p></div>}>
                 {/* Hero Headlines */}
                 <div className="relative text-center lg:text-left">
                   <div className="flex items-center align-left gap-3">
@@ -608,46 +619,11 @@ export default function HomePage() {
                     <h3 className="text-xl font-semibold mb-4">Activate Your Rewards Account</h3>
                     
                     <div className="space-y-4 my-4 text-left max-w-md mx-auto">
-                      {/* Step 1: Link X Account */}
-                      <div className={`p-3 border rounded-lg ${session?.user?.linkedXUsername ? 'border-green-300 bg-green-50' : 'border-gray-300 bg-gray-50'}`}>
-                        <div className="flex items-center justify-between">
-                          <p className={`font-semibold ${session?.user?.linkedXUsername ? 'text-green-700' : 'text-gray-700'}`}>
-                            Step 1: Link X Account
-                          </p>
-                          {session?.user?.linkedXUsername && <span className="text-green-500 font-bold">✓</span>}
-                        </div>
-                        {!session?.user?.linkedXUsername && (
-                          <p className="text-sm text-gray-600 mt-1 mb-2">
-                            Connect your X account to enable features and earn potential bonuses.
-                          </p>
-                        )}
-                        {/* ConnectXButton will display linked info OR the connect button */}
-                        <ConnectXButton /> 
-                      </div>
-
-                      {/* Step 2: Verify Follow Status - Display only if X is linked */}
-                      {session?.user?.linkedXUsername && (
-                        <div className={`p-3 border rounded-lg ${session.user.followsDefAIRewards === true ? 'border-green-300 bg-green-50' : (session.user.followsDefAIRewards === false ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-gray-50')}`}>
-                          <div className="flex items-center justify-between">
-                            <p className={`font-semibold ${session.user.followsDefAIRewards === true ? 'text-green-700' : (session.user.followsDefAIRewards === false ? 'text-red-700' : 'text-gray-700')}`}>
-                              Step 2: Verify Follow of @defAIRewards
-                            </p>
-                            {session.user.followsDefAIRewards === true && <span className="text-green-500 font-bold">✓</span>}
-                            {session.user.followsDefAIRewards === false && <span className="text-red-500 font-bold">✗</span>}
-                          </div>
-                          <p className="text-sm text-gray-600 mt-1 mb-2">
-                            Ensure you are following the <a href="https://x.com/defAIRewards" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline">@defAIRewards</a> X account.
-                          </p>
-                          {/* Render VerifyFollowButton here */}
-                          <VerifyFollowButton linkedXUsername={session.user.linkedXUsername} />
-                        </div>
-                      )}
-
-                      {/* Step 3: Hold DEFAI */}
+                      {/* Primary requirement: Hold DEFAI */}
                       <div className={`p-3 border rounded-lg ${hasSufficientDefai === true ? 'border-green-300 bg-green-50' : 'border-gray-300 bg-gray-50'}`}>
                          <div className="flex items-center justify-between">
                           <p className={`font-semibold ${hasSufficientDefai === true ? 'text-green-700' : 'text-gray-700'}`}>
-                            Step 3: Hold Sufficient DEFAI
+                            Hold Sufficient DEFAI
                           </p>
                           {hasSufficientDefai === true && <span className="text-green-500 font-bold">✓</span>}
                         </div>
@@ -660,12 +636,20 @@ export default function HomePage() {
                             </Link>
                         )}
                       </div>
+                      
+                      {/* Optional: Link X Account for additional features */}
+                      <div className="p-3 border rounded-lg border-gray-200 bg-gray-50">
+                        <p className="text-sm text-gray-600 mb-2">
+                          <span className="font-semibold">Optional:</span> Connect X for additional rewards and social features
+                        </p>
+                        <ConnectXButton /> 
+                      </div>
                     </div>
                   </div>
                 )}
 
                 {/* Milestones / Earn Actions Table (Accordion for Desktop) */}
-                {showPointsSection && userData && (
+                {showPointsSection && (
                   <Accordion type="single" collapsible className="w-full bg-white/60 backdrop-blur-md shadow-lg rounded-xl border border-gray-200/50 p-1 md:p-2">
                     <AccordionItem value="item-1">
                       <AccordionTrigger className="px-4 py-3 hover:no-underline">
@@ -674,10 +658,10 @@ export default function HomePage() {
                       <AccordionContent className="px-4 pb-4">
                         <ul className="space-y-1.5">
                           {pointActivities.map((activity) => {
-                            const isCompleted = (userData.completedActions || []).includes(activity.id);
+                            const isCompleted = (userData?.completedActions || []).includes(activity.id);
                             let isEffectivelyCompleted = isCompleted;
                             if (activity.id === 'shared_milestone_profile_on_x') {
-                              const hasFrenzyBoost = userData.activeReferralBoosts?.some(b => b.description.includes('Referral Frenzy'));
+                              const hasFrenzyBoost = userData?.activeReferralBoosts?.some(b => b.description.includes('Referral Frenzy'));
                               isEffectivelyCompleted = isCompleted || !!hasFrenzyBoost;
                             }
                             return (
@@ -697,10 +681,12 @@ export default function HomePage() {
                     </AccordionItem>
                   </Accordion>
                 )}
+                </ErrorBoundary>
               </div>
 
               {/* === Right Column (Sidebar) === */}
               <aside className="lg:sticky lg:top-24 space-y-6 animate-fadeUp lg:animate-[fadeUp_0.6s_ease_0.2s]" style={{alignSelf: 'start'}}>
+                <ErrorBoundary fallback={<div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center"><p>Loading sidebar...</p></div>}>
                 <MiniSquadCard 
                   squadId={mySquadData?.squadId}
                   squadName={mySquadData?.name}
@@ -767,6 +753,7 @@ export default function HomePage() {
                     </ul>
                   </div>
                 )}
+                </ErrorBoundary>
               </aside>
             </div>
           </div>
@@ -824,50 +811,16 @@ export default function HomePage() {
               </div>
             ) : null} */}
             
-            {/* Mobile: Activate Account Section (similar logic to desktop) */}
+                        {/* Mobile: Activate Account Section (simplified - only DEFAI requirement) */}
             {(authStatus === "authenticated" && wallet.connected && (!isRewardsActive || hasSufficientDefai === false)) && (
               <div className="w-full my-4 p-4 bg-white/60 backdrop-blur-md shadow-lg rounded-xl border border-gray-200/50 text-center">
                 <h3 className="text-xl font-semibold mb-4">Activate Your Rewards Account</h3>
                 <div className="space-y-4 my-4 text-left">
-                  {/* Step 1: Link X Account */}
-                  <div className={`p-3 border rounded-lg ${session?.user?.linkedXUsername ? 'border-green-300 bg-green-50' : 'border-gray-300 bg-gray-50'}`}>
-                    <div className="flex items-center justify-between">
-                      <p className={`font-semibold ${session?.user?.linkedXUsername ? 'text-green-700' : 'text-gray-700'}`}>
-                        Step 1: Link X Account
-                      </p>
-                      {session?.user?.linkedXUsername && <span className="text-green-500 font-bold">✓</span>}
-                    </div>
-                    {!session?.user?.linkedXUsername && (
-                        <p className="text-sm text-gray-600 mt-1 mb-2">
-                        Connect your X account.
-                        </p>
-                    )}
-                    <ConnectXButton />
-                  </div>
-
-                  {/* Step 2: Verify Follow Status - Display only if X is linked */}
-                  {session?.user?.linkedXUsername && (
-                    <div className={`p-3 border rounded-lg ${session.user.followsDefAIRewards === true ? 'border-green-300 bg-green-50' : (session.user.followsDefAIRewards === false ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-gray-50')}`}>
-                      <div className="flex items-center justify-between">
-                        <p className={`font-semibold ${session.user.followsDefAIRewards === true ? 'text-green-700' : (session.user.followsDefAIRewards === false ? 'text-red-700' : 'text-gray-700')}`}>
-                          Step 2: Verify Follow of @defAIRewards
-                        </p>
-                        {session.user.followsDefAIRewards === true && <span className="text-green-500 font-bold">✓</span>}
-                        {session.user.followsDefAIRewards === false && <span className="text-red-500 font-bold">✗</span>}
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1 mb-2">
-                        Follow <a href="https://x.com/defAIRewards" target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline">@defAIRewards</a> to complete this step.
-                      </p>
-                      {/* Render VerifyFollowButton here */}
-                      <VerifyFollowButton linkedXUsername={session.user.linkedXUsername} />
-                    </div>
-                  )}
-
-                  {/* Step 3: Hold DEFAI */}
+                  {/* Only requirement: Hold DEFAI */}
                   <div className={`p-3 border rounded-lg ${hasSufficientDefai === true ? 'border-green-300 bg-green-50' : 'border-gray-300 bg-gray-50'}`}>
                     <div className="flex items-center justify-between">
                       <p className={`font-semibold ${hasSufficientDefai === true ? 'text-green-700' : 'text-gray-700'}`}>
-                        Step 3: Hold Sufficient DEFAI
+                        Hold Sufficient DEFAI
                       </p>
                       {hasSufficientDefai === true && <span className="text-green-500 font-bold">✓</span>}
                     </div>
@@ -879,6 +832,14 @@ export default function HomePage() {
                             <Button size="sm" className="bg-[#2B96F1] hover:bg-blue-600 text-white"><ChartIcon /> Buy DeFAI</Button>
                         </Link>
                     )}
+                  </div>
+                  
+                  {/* Optional: Connect X for additional features */}
+                  <div className="p-3 border rounded-lg border-gray-200 bg-gray-50">
+                    <p className="text-sm text-gray-600 mb-2">
+                      <span className="font-semibold">Optional:</span> Connect X for additional rewards and features
+                    </p>
+                    <ConnectXButton />
                   </div>
                 </div>
               </div>
@@ -897,7 +858,7 @@ export default function HomePage() {
                 </div>
             )}
 
-            {showPointsSection && userData && (
+            {showPointsSection && (
               <div className="w-full max-w-md mt-1 flex flex-col items-center space-y-5">
                 <AirdropInfoDisplay 
                   onTotalAirdropChange={setCurrentTotalAirdropForSharing} 
@@ -935,7 +896,7 @@ export default function HomePage() {
                   </div>
                 )}
                 {/* Other mobile sections like referral, invites can be added here if needed, or kept simpler */}
-                 {userData.referralCode && (
+                 {userData?.referralCode && (
                   <div className="my-3 p-3 bg-card rounded-lg text-center w-full border border-border">
                     <p className="text-sm font-semibold text-foreground mb-1">Your Referral Link:</p>
                     <div className="flex items-center bg-muted p-1.5 rounded border border-input">
@@ -951,10 +912,10 @@ export default function HomePage() {
                     <div className="bg-card p-2.5 rounded-lg shadow border border-border">
                         <ul className="space-y-1">
                         {pointActivities.map((activity) => {
-                            const isCompleted = (userData.completedActions || []).includes(activity.id);
+                            const isCompleted = (userData?.completedActions || []).includes(activity.id);
                             let isEffectivelyCompleted = isCompleted;
                             if (activity.id === 'shared_milestone_profile_on_x') {
-                            const hasFrenzyBoost = userData.activeReferralBoosts?.some(b => b.description.includes('Referral Frenzy'));
+                            const hasFrenzyBoost = userData?.activeReferralBoosts?.some(b => b.description.includes('Referral Frenzy'));
                             isEffectivelyCompleted = isCompleted || !!hasFrenzyBoost;
                             }
                             return (
