@@ -17,7 +17,40 @@ export function useHomePageLogic() {
   const wallet = useWallet();
   const { connection } = useConnection();
   const { setVisible: setWalletModalVisible } = useWalletModal();
+  
+  // Production-safe refs and guards
   const walletPromptedRef = useRef(false);
+  const lastAuthCheckRef = useRef<string>('');
+  const renderCountRef = useRef(0);
+  const lastRenderTimeRef = useRef(0);
+  const isInitializedRef = useRef(false);
+  
+  // Production guard: Prevent excessive re-renders
+  const now = Date.now();
+  renderCountRef.current += 1;
+  if (now - lastRenderTimeRef.current < 100) { // Throttle to max 10 renders per second
+    if (renderCountRef.current > 50) {
+      console.warn('[useHomePageLogic] Excessive re-renders detected, throttling...', {
+        renderCount: renderCountRef.current,
+        authStatus,
+        walletConnected: wallet.connected
+      });
+      return {
+        session: null,
+        authStatus: 'loading',
+        wallet,
+        connection,
+        // Return minimal state to break the loop
+        userData: {},
+        isRewardsActive: false,
+        isActivatingRewards: false,
+        // ... other minimal returns
+      };
+    }
+  } else {
+    renderCountRef.current = 0;
+    lastRenderTimeRef.current = now;
+  }
   
   // Debug logging (only in development)
   if (process.env.NODE_ENV === 'development') {
@@ -73,12 +106,19 @@ export function useHomePageLogic() {
   const [isWalletSigningIn, setIsWalletSigningIn] = useState(false);
   const [walletSignInAttempted, setWalletSignInAttempted] = useState(false);
   const [userDetailsFetched, setUserDetailsFetched] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   const combinedUserData = {
     ...otherUserData,
     points: userAirdrop.points,
     initialAirdropAmount: userAirdrop.initialDefai,
   };
+
+  // Production hydration fix
+  useEffect(() => {
+    setIsHydrated(true);
+    isInitializedRef.current = true;
+  }, []);
 
   // Simplified airdrop sharing calculation
   useEffect(() => {
@@ -258,9 +298,23 @@ export function useHomePageLogic() {
     setIsActivatingRewards(false);
   }, [initialReferrer, squadInviteIdFromUrl, fetchMySquadData, fetchPendingInvites, checkDefaiBalance, wallet.publicKey, connection, isActivatingRewards, activationAttempted]);
 
-  // SIMPLIFIED: Main authentication and wallet connection handler
+  // PRODUCTION-SAFE: Main authentication and wallet connection handler
   useEffect(() => {
+    // Wait for hydration in production
+    if (!isHydrated) return;
+    
     const handleWalletAuth = async () => {
+      // Create a unique key for this auth check to prevent duplicate calls
+      const authCheckKey = `${authStatus}-${wallet.connected}-${!!wallet.publicKey}-${!!session?.user?.walletAddress}-${isRewardsActive}-${activationAttempted}-${isWalletSigningIn}-${walletSignInAttempted}`;
+      
+      // Prevent duplicate auth checks
+      if (lastAuthCheckRef.current === authCheckKey) {
+        return;
+      }
+      lastAuthCheckRef.current = authCheckKey;
+      
+      console.log('[useHomePageLogic] Auth check:', authCheckKey);
+      
       // Case 1: Wallet connected but not authenticated - sign in
       if (wallet.connected && wallet.publicKey && authStatus !== "authenticated" && !isWalletSigningIn && !walletSignInAttempted) {
         console.log('[useHomePageLogic] Starting wallet sign-in...');
@@ -281,12 +335,12 @@ export function useHomePageLogic() {
             setWalletSignInAttempted(false);
           } else if (result?.ok) {
             console.log('[useHomePageLogic] Sign-in successful');
-            // Force page reload for session update
+            // In production, force a hard reload for session consistency
             setTimeout(() => {
               if (typeof window !== 'undefined') {
                 window.location.href = window.location.pathname;
               }
-            }, 500);
+            }, 1000); // Longer delay for production
           }
         } catch (err) {
           console.error('[useHomePageLogic] Sign-in exception:', err);
@@ -330,8 +384,11 @@ export function useHomePageLogic() {
       }
     };
 
-    handleWalletAuth();
+    // Debounce the auth handler in production
+    const timeoutId = setTimeout(handleWalletAuth, process.env.NODE_ENV === 'production' ? 300 : 0);
+    return () => clearTimeout(timeoutId);
   }, [
+    isHydrated,
     authStatus,
     wallet.connected,
     wallet.publicKey,
@@ -367,6 +424,7 @@ export function useHomePageLogic() {
       setHasSufficientDefai(null);
       setPendingInvites([]);
       setDefaiBalance(null);
+      lastAuthCheckRef.current = '';
     }
   }, [wallet.connected]);
 
@@ -384,11 +442,14 @@ export function useHomePageLogic() {
       setHasSufficientDefai(null);
       setPendingInvites([]);
       setWalletSignInAttempted(false);
+      lastAuthCheckRef.current = '';
     }
   }, [wallet.publicKey, prevWalletAddress]);
 
-  // Initialize URL parameters
+  // Initialize URL parameters (only once)
   useEffect(() => {
+    if (!isInitializedRef.current) return;
+    
     const urlParams = new URLSearchParams(window.location.search);
     const refCode = urlParams.get('ref');
     if (refCode) {
@@ -402,12 +463,13 @@ export function useHomePageLogic() {
     if (squadInviteParam) {
       setSquadInviteIdFromUrl(squadInviteParam);
     }
-  }, []);
+  }, [isHydrated]);
 
-  // Fetch user details when authenticated
+  // Fetch user details when authenticated (debounced)
   useEffect(() => {
-    if (authStatus !== 'authenticated' || userDetailsFetched) return;
-    (async () => {
+    if (authStatus !== 'authenticated' || userDetailsFetched || !isHydrated) return;
+    
+    const timeoutId = setTimeout(async () => {
       try {
         const res = await fetch('/api/users/my-details');
         const data = await res.json();
@@ -424,49 +486,65 @@ export function useHomePageLogic() {
       } catch (e) {
         console.warn('[useHomePageLogic] Unable to fetch my-details:', e);
       }
-    })();
-  }, [authStatus, userDetailsFetched]);
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [authStatus, userDetailsFetched, isHydrated]);
 
-  // Check environment variables
+  // Check environment variables (debounced)
   useEffect(() => {
-    if (envVars && !isEnvLoading) {
-      try {
-        checkRequiredEnvVars(envVars);
-      } catch (e) {
-        console.warn('[useHomePageLogic] Environment variable check failed:', e);
+    if (!isHydrated) return;
+    
+    const timeoutId = setTimeout(() => {
+      if (envVars && !isEnvLoading) {
+        try {
+          checkRequiredEnvVars(envVars);
+        } catch (e) {
+          console.warn('[useHomePageLogic] Environment variable check failed:', e);
+        }
+      } else if (envError) {
+        console.error('[useHomePageLogic] Failed to load environment variables:', envError);
       }
-    } else if (envError) {
-      console.error('[useHomePageLogic] Failed to load environment variables:', envError);
-    }
-  }, [envVars, isEnvLoading, envError]);
+    }, 1000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [envVars, isEnvLoading, envError, isHydrated]);
 
   // Initialize desktop detection
   useEffect(() => {
+    if (!isHydrated) return;
+    
     const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024);
     checkDesktop();
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
-  }, []);
+  }, [isHydrated]);
 
-  // Fetch total community points
+  // Fetch total community points (debounced)
   useEffect(() => {
-    fetch('/api/stats/total-points')
-      .then(async res => {
-        if (!res.ok) throw new Error('Network error fetching total points');
-        return res.json();
-      })
-      .then(data => {
-        if (data.totalCommunityPoints !== undefined && data.totalCommunityPoints !== null) {
-          setTotalCommunityPoints(data.totalCommunityPoints);
-        } else {
+    if (!isHydrated) return;
+    
+    const timeoutId = setTimeout(() => {
+      fetch('/api/stats/total-points')
+        .then(async res => {
+          if (!res.ok) throw new Error('Network error fetching total points');
+          return res.json();
+        })
+        .then(data => {
+          if (data.totalCommunityPoints !== undefined && data.totalCommunityPoints !== null) {
+            setTotalCommunityPoints(data.totalCommunityPoints);
+          } else {
+            setTotalCommunityPoints(0);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch total community points for dashboard", err);
           setTotalCommunityPoints(0);
-        }
-      })
-      .catch(err => {
-        console.error("Failed to fetch total community points for dashboard", err);
-        setTotalCommunityPoints(0);
-      });
-  }, []);
+        });
+    }, 1500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [isHydrated]);
 
   const handleFullLogout = useCallback(async () => {
     toast.info("Signing out and disconnecting wallet...");
@@ -490,6 +568,7 @@ export function useHomePageLogic() {
       setActivationAttempted(false); 
       setWalletSignInAttempted(false);
       setUserDetailsFetched(false);
+      lastAuthCheckRef.current = '';
       sessionStorage.setItem('logoutInProgress', 'true');
       window.location.href = '/';
     } catch (e) {
@@ -501,34 +580,42 @@ export function useHomePageLogic() {
     }
   }, [wallet]);
 
-  // Auto-prompt wallet modal after authentication
+  // Auto-prompt wallet modal after authentication (debounced)
   useEffect(() => {
-    const wasLoggingOut = sessionStorage.getItem('logoutInProgress') === 'true';
-    if (wasLoggingOut) {
-      sessionStorage.removeItem('logoutInProgress');
-      if (typeof setWalletModalVisible === 'function') { 
-        setWalletModalVisible(false); 
-      }
-      walletPromptedRef.current = true; 
-      return; 
-    }
+    if (!isHydrated) return;
     
-    if (authStatus === "authenticated" && !wallet.connected && !wallet.connecting && !walletPromptedRef.current) {
-      walletPromptedRef.current = true;
-      if (typeof setWalletModalVisible === 'function') { 
-        setTimeout(() => setWalletModalVisible(true), 100); 
+    const timeoutId = setTimeout(() => {
+      const wasLoggingOut = sessionStorage.getItem('logoutInProgress') === 'true';
+      if (wasLoggingOut) {
+        sessionStorage.removeItem('logoutInProgress');
+        if (typeof setWalletModalVisible === 'function') { 
+          setWalletModalVisible(false); 
+        }
+        walletPromptedRef.current = true; 
+        return; 
       }
-    }
+      
+      if (authStatus === "authenticated" && !wallet.connected && !wallet.connecting && !walletPromptedRef.current) {
+        walletPromptedRef.current = true;
+        if (typeof setWalletModalVisible === 'function') { 
+          setTimeout(() => setWalletModalVisible(true), 100); 
+        }
+      }
+      
+      if (wallet.connected) {
+        walletPromptedRef.current = false;
+      } else if (authStatus === "unauthenticated" && !wasLoggingOut) { 
+        walletPromptedRef.current = false;
+      }
+    }, 200);
     
-    if (wallet.connected) {
-      walletPromptedRef.current = false;
-    } else if (authStatus === "unauthenticated" && !wasLoggingOut) { 
-      walletPromptedRef.current = false;
-    }
-  }, [authStatus, wallet.connected, wallet.connecting, setWalletModalVisible]);
+    return () => clearTimeout(timeoutId);
+  }, [authStatus, wallet.connected, wallet.connecting, setWalletModalVisible, isHydrated]);
 
-  // Periodic points polling for active users
+  // Periodic points polling for active users (reduced frequency in production)
   useEffect(() => {
+    if (!isHydrated) return;
+    
     let intervalId: any;
     if (authStatus === 'authenticated' && isRewardsActive) {
       const fetchLatestPoints = async () => {
@@ -542,13 +629,70 @@ export function useHomePageLogic() {
           console.warn('[useHomePageLogic] points polling failed', e);
         }
       };
-      fetchLatestPoints();
-      intervalId = setInterval(fetchLatestPoints, 30000); // 30-sec poll
+      
+      // Initial fetch after delay
+      setTimeout(fetchLatestPoints, 2000);
+      // Longer polling interval in production
+      const pollingInterval = process.env.NODE_ENV === 'production' ? 60000 : 30000;
+      intervalId = setInterval(fetchLatestPoints, pollingInterval);
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [authStatus, isRewardsActive]);
+  }, [authStatus, isRewardsActive, isHydrated]);
+
+  // Production safety: Don't return data until hydrated
+  if (!isHydrated) {
+    return {
+      session: null,
+      authStatus: 'loading',
+      wallet,
+      connection,
+      userAirdropData: { points: null, initialDefai: null, totalDefai: null, isLoading: true },
+      userData: {},
+      typedAddress: '',
+      setTypedAddress: () => {},
+      airdropCheckResultForTyped: null,
+      setAirdropCheckResult: () => {},
+      isCheckingAirdrop: false,
+      setIsCheckingAirdrop: () => {},
+      isRewardsActive: false,
+      isActivatingRewards: false,
+      setOtherUserData: () => {},
+      mySquadData: null,
+      isFetchingSquad: false,
+      userCheckedNoSquad: false,
+      initialReferrer: null,
+      pendingInvites: [],
+      isFetchingInvites: false,
+      isProcessingInvite: null,
+      setIsProcessingInvite: () => {},
+      squadInviteIdFromUrl: null,
+      setSquadInviteIdFromUrl: () => {},
+      currentTotalAirdropForSharing: 0,
+      setCurrentTotalAirdropForSharing: () => {},
+      isCheckingDefaiBalance: false,
+      hasSufficientDefai: null,
+      setHasSufficientDefai: () => {},
+      showWelcomeModal: false,
+      setShowWelcomeModal: () => {},
+      isProcessingLinkInvite: false,
+      setIsProcessingLinkInvite: () => {},
+      activationAttempted: false,
+      isDesktop: false,
+      setIsDesktop: () => {},
+      totalCommunityPoints: null,
+      setTotalCommunityPoints: () => {},
+      defaiBalance: null,
+      setDefaiBalance: () => {},
+      handleWalletConnectSuccess: () => {},
+      fetchMySquadData: () => {},
+      fetchPendingInvites: () => {},
+      checkDefaiBalance: () => {},
+      activateRewardsAndFetchData: () => {},
+      handleFullLogout: () => {},
+    };
+  }
 
   return {
     session,

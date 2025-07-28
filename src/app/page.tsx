@@ -487,7 +487,16 @@ export default function HomePage() {
 
   if (authStatus === "loading") {
     console.log("[HomePage] Rendering: Loading Session state");
-    return <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground"><p className="text-xl">Loading Session...</p></main>;
+    return (
+      <main className="flex flex-col items-center justify-center min-h-screen p-8 bg-background text-foreground">
+        <DeFAILogo className="h-20 w-20 mb-6 animate-pulse" />
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-defai-purple mb-4">DeFAI Rewards</h1>
+          <p className="text-lg text-muted-foreground mb-6">Initializing your session...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-defai-purple mx-auto"></div>
+        </div>
+      </main>
+    );
   }
 
   if (authStatus !== "authenticated") {
