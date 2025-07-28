@@ -18,67 +18,11 @@ export function useHomePageLogic() {
   const { connection } = useConnection();
   const { setVisible: setWalletModalVisible } = useWalletModal();
   
-  // Production-safe refs and guards
-  const walletPromptedRef = useRef(false);
-  const lastAuthCheckRef = useRef<string>('');
-  const renderCountRef = useRef(0);
-  const lastRenderTimeRef = useRef(0);
-  const isInitializedRef = useRef(false);
-  
-  // Production guard: Prevent excessive re-renders
-  const now = Date.now();
-  renderCountRef.current += 1;
-  if (now - lastRenderTimeRef.current < 100) { // Throttle to max 10 renders per second
-    if (renderCountRef.current > 50) {
-      console.warn('[useHomePageLogic] Excessive re-renders detected, throttling...', {
-        renderCount: renderCountRef.current,
-        authStatus,
-        walletConnected: wallet.connected
-      });
-      return {
-        session: null,
-        authStatus: 'loading',
-        wallet,
-        connection,
-        // Return minimal state to break the loop
-        userData: {},
-        isRewardsActive: false,
-        isActivatingRewards: false,
-        // ... other minimal returns
-      };
-    }
-  } else {
-    renderCountRef.current = 0;
-    lastRenderTimeRef.current = now;
-  }
-  
-  // Debug logging (only in development)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[useHomePageLogic] Current state:', {
-      authStatus,
-      sessionUser: session?.user,
-      walletConnected: wallet.connected,
-      walletAddress: wallet.publicKey?.toBase58(),
-      sessionWalletAddress: session?.user?.walletAddress
-    });
-  }
-
   // Get environment variables via API to bypass Next.js bundling issues
   const { envVars, isLoading: isEnvLoading, error: envError } = useEnv();
-  
-  // Fallback for production if env API fails
-  const getEnvVarWithFallback = (key: string) => {
-    if (envVars && envVars[key]) {
-      return envVars[key];
-    }
-    // Use process.env directly as fallback
-    if (typeof window !== 'undefined' && (window as any)[key]) {
-      return (window as any)[key];
-    }
-    return process.env[key];
-  };
-
   const userAirdrop = useUserAirdrop();
+  
+  // ALL STATE HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL LOGIC
   const [typedAddress, setTypedAddress] = useState('');
   const [airdropCheckResultForTyped, setAirdropCheckResultForTyped] = useState<number | string | null>(null);
   const [isCheckingAirdropForTyped, setIsCheckingAirdropForTyped] = useState(false);
@@ -107,18 +51,118 @@ export function useHomePageLogic() {
   const [walletSignInAttempted, setWalletSignInAttempted] = useState(false);
   const [userDetailsFetched, setUserDetailsFetched] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  
+  // Production-safe refs and guards
+  const walletPromptedRef = useRef(false);
+  const lastAuthCheckRef = useRef<string>('');
+  const renderCountRef = useRef(0);
+  const lastRenderTimeRef = useRef(0);
+  const isInitializedRef = useRef(false);
+  
+  // Production hydration fix
+  useEffect(() => {
+    setIsHydrated(true);
+    isInitializedRef.current = true;
+  }, []);
+  
+  // NOW THAT ALL HOOKS ARE CALLED, WE CAN APPLY PRODUCTION GUARDS
+  // Production guard: Prevent excessive re-renders
+  const now = Date.now();
+  renderCountRef.current += 1;
+  if (now - lastRenderTimeRef.current < 100) { // Throttle to max 10 renders per second
+    if (renderCountRef.current > 50) {
+      console.warn('[useHomePageLogic] Excessive re-renders detected, throttling...', {
+        renderCount: renderCountRef.current,
+        authStatus,
+        walletConnected: wallet.connected
+      });
+      // Instead of early return, just set a flag to return minimal data at the end
+      const shouldThrottle = true;
+      if (shouldThrottle) {
+        return {
+          session: null,
+          authStatus: 'loading',
+          wallet,
+          connection,
+          userAirdropData: { points: null, initialDefai: null, totalDefai: null, isLoading: true },
+          userData: {},
+          typedAddress: '',
+          setTypedAddress: () => {},
+          airdropCheckResultForTyped: null,
+          setAirdropCheckResult: () => {},
+          isCheckingAirdrop: false,
+          setIsCheckingAirdrop: () => {},
+          isRewardsActive: false,
+          isActivatingRewards: false,
+          setOtherUserData: () => {},
+          mySquadData: null,
+          isFetchingSquad: false,
+          userCheckedNoSquad: false,
+          initialReferrer: null,
+          pendingInvites: [],
+          isFetchingInvites: false,
+          isProcessingInvite: null,
+          setIsProcessingInvite: () => {},
+          squadInviteIdFromUrl: null,
+          setSquadInviteIdFromUrl: () => {},
+          currentTotalAirdropForSharing: 0,
+          setCurrentTotalAirdropForSharing: () => {},
+          isCheckingDefaiBalance: false,
+          hasSufficientDefai: null,
+          setHasSufficientDefai: () => {},
+          showWelcomeModal: false,
+          setShowWelcomeModal: () => {},
+          isProcessingLinkInvite: false,
+          setIsProcessingLinkInvite: () => {},
+          activationAttempted: false,
+          isDesktop: false,
+          setIsDesktop: () => {},
+          totalCommunityPoints: null,
+          setTotalCommunityPoints: () => {},
+          defaiBalance: null,
+          setDefaiBalance: () => {},
+          handleWalletConnectSuccess: () => {},
+          fetchMySquadData: () => {},
+          fetchPendingInvites: () => {},
+          checkDefaiBalance: () => {},
+          activateRewardsAndFetchData: () => {},
+          handleFullLogout: () => {},
+        };
+      }
+    }
+  } else {
+    renderCountRef.current = 0;
+    lastRenderTimeRef.current = now;
+  }
+  
+  // Debug logging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[useHomePageLogic] Current state:', {
+      authStatus,
+      sessionUser: session?.user,
+      walletConnected: wallet.connected,
+      walletAddress: wallet.publicKey?.toBase58(),
+      sessionWalletAddress: session?.user?.walletAddress
+    });
+  }
+
+  // Fallback for production if env API fails
+  const getEnvVarWithFallback = (key: string) => {
+    if (envVars && envVars[key]) {
+      return envVars[key];
+    }
+    // Use process.env directly as fallback
+    if (typeof window !== 'undefined' && (window as any)[key]) {
+      return (window as any)[key];
+    }
+    return process.env[key];
+  };
 
   const combinedUserData = {
     ...otherUserData,
     points: userAirdrop.points,
     initialAirdropAmount: userAirdrop.initialDefai,
   };
-
-  // Production hydration fix
-  useEffect(() => {
-    setIsHydrated(true);
-    isInitializedRef.current = true;
-  }, []);
 
   // Simplified airdrop sharing calculation
   useEffect(() => {
