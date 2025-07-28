@@ -13,16 +13,15 @@ import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { hasSufficientDefaiBalance } from '@/utils/tokenBalance';
 
 export function useHomePageLogic() {
+  // ALL HOOKS MUST BE CALLED AT THE TOP - NO EXCEPTIONS
   const { data: session, status: authStatus, update: updateSession } = useSession();
   const wallet = useWallet();
   const { connection } = useConnection();
   const { setVisible: setWalletModalVisible } = useWalletModal();
-  
-  // Get environment variables via API to bypass Next.js bundling issues
   const { envVars, isLoading: isEnvLoading, error: envError } = useEnv();
   const userAirdrop = useUserAirdrop();
   
-  // ALL STATE HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL LOGIC
+  // ALL useState HOOKS
   const [typedAddress, setTypedAddress] = useState('');
   const [airdropCheckResultForTyped, setAirdropCheckResultForTyped] = useState<number | string | null>(null);
   const [isCheckingAirdropForTyped, setIsCheckingAirdropForTyped] = useState(false);
@@ -51,118 +50,22 @@ export function useHomePageLogic() {
   const [walletSignInAttempted, setWalletSignInAttempted] = useState(false);
   const [userDetailsFetched, setUserDetailsFetched] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [shouldThrottle, setShouldThrottle] = useState(false);
   
-  // Production-safe refs and guards
+  // ALL useRef HOOKS
   const walletPromptedRef = useRef(false);
   const lastAuthCheckRef = useRef<string>('');
   const renderCountRef = useRef(0);
   const lastRenderTimeRef = useRef(0);
   const isInitializedRef = useRef(false);
   
+  // ALL useEffect HOOKS - MUST BE BEFORE ANY CONDITIONAL LOGIC
+  
   // Production hydration fix
   useEffect(() => {
     setIsHydrated(true);
     isInitializedRef.current = true;
   }, []);
-  
-  // NOW THAT ALL HOOKS ARE CALLED, WE CAN APPLY PRODUCTION GUARDS
-  // Production guard: Prevent excessive re-renders
-  const now = Date.now();
-  renderCountRef.current += 1;
-  if (now - lastRenderTimeRef.current < 100) { // Throttle to max 10 renders per second
-    if (renderCountRef.current > 50) {
-      console.warn('[useHomePageLogic] Excessive re-renders detected, throttling...', {
-        renderCount: renderCountRef.current,
-        authStatus,
-        walletConnected: wallet.connected
-      });
-      // Instead of early return, just set a flag to return minimal data at the end
-      const shouldThrottle = true;
-      if (shouldThrottle) {
-        return {
-          session: null,
-          authStatus: 'loading',
-          wallet,
-          connection,
-          userAirdropData: { points: null, initialDefai: null, totalDefai: null, isLoading: true },
-          userData: {},
-          typedAddress: '',
-          setTypedAddress: () => {},
-          airdropCheckResultForTyped: null,
-          setAirdropCheckResult: () => {},
-          isCheckingAirdrop: false,
-          setIsCheckingAirdrop: () => {},
-          isRewardsActive: false,
-          isActivatingRewards: false,
-          setOtherUserData: () => {},
-          mySquadData: null,
-          isFetchingSquad: false,
-          userCheckedNoSquad: false,
-          initialReferrer: null,
-          pendingInvites: [],
-          isFetchingInvites: false,
-          isProcessingInvite: null,
-          setIsProcessingInvite: () => {},
-          squadInviteIdFromUrl: null,
-          setSquadInviteIdFromUrl: () => {},
-          currentTotalAirdropForSharing: 0,
-          setCurrentTotalAirdropForSharing: () => {},
-          isCheckingDefaiBalance: false,
-          hasSufficientDefai: null,
-          setHasSufficientDefai: () => {},
-          showWelcomeModal: false,
-          setShowWelcomeModal: () => {},
-          isProcessingLinkInvite: false,
-          setIsProcessingLinkInvite: () => {},
-          activationAttempted: false,
-          isDesktop: false,
-          setIsDesktop: () => {},
-          totalCommunityPoints: null,
-          setTotalCommunityPoints: () => {},
-          defaiBalance: null,
-          setDefaiBalance: () => {},
-          handleWalletConnectSuccess: () => {},
-          fetchMySquadData: () => {},
-          fetchPendingInvites: () => {},
-          checkDefaiBalance: () => {},
-          activateRewardsAndFetchData: () => {},
-          handleFullLogout: () => {},
-        };
-      }
-    }
-  } else {
-    renderCountRef.current = 0;
-    lastRenderTimeRef.current = now;
-  }
-  
-  // Debug logging (only in development)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[useHomePageLogic] Current state:', {
-      authStatus,
-      sessionUser: session?.user,
-      walletConnected: wallet.connected,
-      walletAddress: wallet.publicKey?.toBase58(),
-      sessionWalletAddress: session?.user?.walletAddress
-    });
-  }
-
-  // Fallback for production if env API fails
-  const getEnvVarWithFallback = (key: string) => {
-    if (envVars && envVars[key]) {
-      return envVars[key];
-    }
-    // Use process.env directly as fallback
-    if (typeof window !== 'undefined' && (window as any)[key]) {
-      return (window as any)[key];
-    }
-    return process.env[key];
-  };
-
-  const combinedUserData = {
-    ...otherUserData,
-    points: userAirdrop.points,
-    initialAirdropAmount: userAirdrop.initialDefai,
-  };
 
   // Simplified airdrop sharing calculation
   useEffect(() => {
@@ -175,6 +78,332 @@ export function useHomePageLogic() {
     }
   }, [userAirdrop.totalDefai, defaiBalance]);
 
+  // PRODUCTION-SAFE: Main authentication and wallet connection handler
+  useEffect(() => {
+    // Wait for hydration in production
+    if (!isHydrated) return;
+    
+    const handleWalletAuth = async () => {
+      // Create a unique key for this auth check to prevent duplicate calls
+      const authCheckKey = `${authStatus}-${wallet.connected}-${!!wallet.publicKey}-${!!session?.user?.walletAddress}-${isRewardsActive}-${activationAttempted}-${isWalletSigningIn}-${walletSignInAttempted}`;
+      
+      // Prevent duplicate auth checks
+      if (lastAuthCheckRef.current === authCheckKey) {
+        return;
+      }
+      lastAuthCheckRef.current = authCheckKey;
+      
+      console.log('[useHomePageLogic] Auth check:', authCheckKey);
+      
+      // Case 1: Wallet connected but not authenticated - sign in
+      if (wallet.connected && wallet.publicKey && authStatus !== "authenticated" && !isWalletSigningIn && !walletSignInAttempted) {
+        console.log('[useHomePageLogic] Starting wallet sign-in...');
+        setIsWalletSigningIn(true);
+        setWalletSignInAttempted(true);
+        
+        try {
+          const result = await signIn('wallet', { 
+            walletAddress: wallet.publicKey.toBase58(), 
+            chain: "solana", 
+            redirect: false,
+            callbackUrl: window.location.pathname
+          });
+          
+          if (result?.error) {
+            console.error('[useHomePageLogic] Sign-in error:', result.error);
+            toast.error(`Authentication failed: ${result.error}`);
+            setWalletSignInAttempted(false);
+          } else if (result?.ok) {
+            console.log('[useHomePageLogic] Sign-in successful');
+            // In production, force a hard reload for session consistency
+            setTimeout(() => {
+              if (typeof window !== 'undefined') {
+                window.location.href = window.location.pathname;
+              }
+            }, 1000); // Longer delay for production
+          }
+        } catch (err) {
+          console.error('[useHomePageLogic] Sign-in exception:', err);
+          toast.error('Failed to authenticate wallet. Please try again.');
+          setWalletSignInAttempted(false);
+        }
+        setIsWalletSigningIn(false);
+        return;
+      }
+
+      // Case 2: Authenticated but wallet not in session - link wallet
+      if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && !session?.user?.walletAddress && !isActivatingRewards) {
+        console.log('[useHomePageLogic] Linking wallet to session...');
+        await handleWalletConnectSuccess();
+        return;
+      }
+
+      // Case 3: Authenticated with wallet in session but rewards not active - activate rewards
+      if (authStatus === "authenticated" && session?.user?.walletAddress && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards && !activationAttempted) {
+        console.log('[useHomePageLogic] Activating rewards...');
+        await activateRewardsAndFetchData(
+          wallet.publicKey.toBase58(),
+          session.user.xId || null,
+          session.user.dbId
+        );
+        return;
+      }
+
+      // Case 4: Everything ready, check DeFAI balance if needed
+      if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && isRewardsActive && hasSufficientDefai === null && !isCheckingDefaiBalance) {
+        console.log('[useHomePageLogic] Checking DeFAI balance...');
+        checkDefaiBalance(wallet.publicKey, connection);
+        return;
+      }
+
+      // Case 5: Fetch pending invites for authenticated users with X auth
+      if (authStatus === "authenticated" && wallet.connected && session?.user?.xId && isRewardsActive && !isFetchingInvites && pendingInvites.length === 0) {
+        console.log('[useHomePageLogic] Fetching pending invites...');
+        fetchPendingInvites();
+        return;
+      }
+    };
+
+    // Debounce the auth handler in production
+    const timeoutId = setTimeout(handleWalletAuth, process.env.NODE_ENV === 'production' ? 300 : 0);
+    return () => clearTimeout(timeoutId);
+  }, [
+    isHydrated,
+    authStatus,
+    wallet.connected,
+    wallet.publicKey,
+    session?.user?.walletAddress,
+    session?.user?.xId,
+    session?.user?.dbId,
+    isRewardsActive,
+    isActivatingRewards,
+    activationAttempted,
+    isWalletSigningIn,
+    walletSignInAttempted,
+    hasSufficientDefai,
+    isCheckingDefaiBalance,
+    isFetchingInvites,
+    pendingInvites.length,
+    connection
+  ]);
+
+  // Reset state when wallet disconnects
+  useEffect(() => {
+    if (!wallet.connected) {
+      setWalletSignInAttempted(false);
+      setPrevWalletAddress(null);
+      setActivationAttempted(false);
+      setIsRewardsActive(false);
+      setOtherUserData({});
+      setMySquadData(null);
+      setUserCheckedNoSquad(false);
+      setHasSufficientDefai(null);
+      setPendingInvites([]);
+      setDefaiBalance(null);
+      lastAuthCheckRef.current = '';
+    }
+  }, [wallet.connected]);
+
+  // Handle wallet address changes
+  useEffect(() => {
+    const currentAddress = wallet.publicKey ? wallet.publicKey.toBase58() : null;
+    if (currentAddress && currentAddress !== prevWalletAddress) {
+      console.log('[useHomePageLogic] Wallet address changed, resetting state');
+      setPrevWalletAddress(currentAddress);
+      setUserCheckedNoSquad(false);
+      setActivationAttempted(false);
+      setIsRewardsActive(false);
+      setOtherUserData({});
+      setMySquadData(null);
+      setHasSufficientDefai(null);
+      setPendingInvites([]);
+      setWalletSignInAttempted(false);
+      lastAuthCheckRef.current = '';
+    }
+  }, [wallet.publicKey, prevWalletAddress]);
+
+  // Initialize URL parameters (only once)
+  useEffect(() => {
+    if (!isInitializedRef.current) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    if (refCode) {
+       localStorage.setItem('referralCode', refCode);
+       setInitialReferrer(refCode);
+    } else {
+       const savedRefCode = localStorage.getItem('referralCode');
+       if (savedRefCode) setInitialReferrer(savedRefCode);
+    }
+    const squadInviteParam = urlParams.get('squadInvite');
+    if (squadInviteParam) {
+      setSquadInviteIdFromUrl(squadInviteParam);
+    }
+  }, [isHydrated]);
+
+  // Fetch user details when authenticated (debounced)
+  useEffect(() => {
+    if (authStatus !== 'authenticated' || userDetailsFetched || !isHydrated) return;
+    
+    const timeoutId = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/users/my-details');
+        const data = await res.json();
+        if (res.ok) {
+          setOtherUserData(prev => ({
+            ...prev,
+            referralCode: data.referralCode ?? prev.referralCode,
+            completedActions: data.completedActions ?? prev.completedActions,
+            xUsername: data.xUsername ?? prev.xUsername,
+            squadId: data.squadId ?? prev.squadId,
+          }));
+          setUserDetailsFetched(true);
+        }
+      } catch (e) {
+        console.warn('[useHomePageLogic] Unable to fetch my-details:', e);
+      }
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [authStatus, userDetailsFetched, isHydrated]);
+
+  // Check environment variables (debounced)
+  useEffect(() => {
+    if (!isHydrated) return;
+    
+    const timeoutId = setTimeout(() => {
+      if (envVars && !isEnvLoading) {
+        try {
+          checkRequiredEnvVars(envVars);
+        } catch (e) {
+          console.warn('[useHomePageLogic] Environment variable check failed:', e);
+        }
+      } else if (envError) {
+        console.error('[useHomePageLogic] Failed to load environment variables:', envError);
+      }
+    }, 1000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [envVars, isEnvLoading, envError, isHydrated]);
+
+  // Initialize desktop detection
+  useEffect(() => {
+    if (!isHydrated) return;
+    
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024);
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, [isHydrated]);
+
+  // Fetch total community points (debounced)
+  useEffect(() => {
+    if (!isHydrated) return;
+    
+    const timeoutId = setTimeout(() => {
+      fetch('/api/stats/total-points')
+        .then(async res => {
+          if (!res.ok) throw new Error('Network error fetching total points');
+          return res.json();
+        })
+        .then(data => {
+          if (data.totalCommunityPoints !== undefined && data.totalCommunityPoints !== null) {
+            setTotalCommunityPoints(data.totalCommunityPoints);
+          } else {
+            setTotalCommunityPoints(0);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch total community points for dashboard", err);
+          setTotalCommunityPoints(0);
+        });
+    }, 1500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [isHydrated]);
+
+  // Auto-prompt wallet modal after authentication (debounced)
+  useEffect(() => {
+    if (!isHydrated) return;
+    
+    const timeoutId = setTimeout(() => {
+      const wasLoggingOut = sessionStorage.getItem('logoutInProgress') === 'true';
+      if (wasLoggingOut) {
+        sessionStorage.removeItem('logoutInProgress');
+        if (typeof setWalletModalVisible === 'function') { 
+          setWalletModalVisible(false); 
+        }
+        walletPromptedRef.current = true; 
+        return; 
+      }
+      
+      if (authStatus === "authenticated" && !wallet.connected && !wallet.connecting && !walletPromptedRef.current) {
+        walletPromptedRef.current = true;
+        if (typeof setWalletModalVisible === 'function') { 
+          setTimeout(() => setWalletModalVisible(true), 100); 
+        }
+      }
+      
+      if (wallet.connected) {
+        walletPromptedRef.current = false;
+      } else if (authStatus === "unauthenticated" && !wasLoggingOut) { 
+        walletPromptedRef.current = false;
+      }
+    }, 200);
+    
+    return () => clearTimeout(timeoutId);
+  }, [authStatus, wallet.connected, wallet.connecting, setWalletModalVisible, isHydrated]);
+
+  // Periodic points polling for active users (reduced frequency in production)
+  useEffect(() => {
+    if (!isHydrated) return;
+    
+    let intervalId: any;
+    if (authStatus === 'authenticated' && isRewardsActive) {
+      const fetchLatestPoints = async () => {
+        try {
+          const res = await fetch('/api/users/my-details');
+          const data = await res.json();
+          if (res.ok && typeof data.points === 'number') {
+            setOtherUserData(prev => ({ ...prev, points: data.points }));
+          }
+        } catch (e) {
+          console.warn('[useHomePageLogic] points polling failed', e);
+        }
+      };
+      
+      // Initial fetch after delay
+      setTimeout(fetchLatestPoints, 2000);
+      // Longer polling interval in production
+      const pollingInterval = process.env.NODE_ENV === 'production' ? 60000 : 30000;
+      intervalId = setInterval(fetchLatestPoints, pollingInterval);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [authStatus, isRewardsActive, isHydrated]);
+
+  // Production guard effect - must be after all other useEffect
+  useEffect(() => {
+    const now = Date.now();
+    renderCountRef.current += 1;
+    if (now - lastRenderTimeRef.current < 100) { // Throttle to max 10 renders per second
+      if (renderCountRef.current > 50) {
+        console.warn('[useHomePageLogic] Excessive re-renders detected, throttling...', {
+          renderCount: renderCountRef.current,
+          authStatus,
+          walletConnected: wallet.connected
+        });
+        setShouldThrottle(true);
+      }
+    } else {
+      renderCountRef.current = 0;
+      lastRenderTimeRef.current = now;
+      setShouldThrottle(false);
+    }
+  }); // No dependencies to run on every render for throttle check
+
+  // ALL useCallback HOOKS
   const handleWalletConnectSuccess = useCallback(async () => {
     console.log("[handleWalletConnectSuccess] Called with:", {
       walletPublicKey: wallet.publicKey?.toBase58(),
@@ -342,254 +571,6 @@ export function useHomePageLogic() {
     setIsActivatingRewards(false);
   }, [initialReferrer, squadInviteIdFromUrl, fetchMySquadData, fetchPendingInvites, checkDefaiBalance, wallet.publicKey, connection, isActivatingRewards, activationAttempted]);
 
-  // PRODUCTION-SAFE: Main authentication and wallet connection handler
-  useEffect(() => {
-    // Wait for hydration in production
-    if (!isHydrated) return;
-    
-    const handleWalletAuth = async () => {
-      // Create a unique key for this auth check to prevent duplicate calls
-      const authCheckKey = `${authStatus}-${wallet.connected}-${!!wallet.publicKey}-${!!session?.user?.walletAddress}-${isRewardsActive}-${activationAttempted}-${isWalletSigningIn}-${walletSignInAttempted}`;
-      
-      // Prevent duplicate auth checks
-      if (lastAuthCheckRef.current === authCheckKey) {
-        return;
-      }
-      lastAuthCheckRef.current = authCheckKey;
-      
-      console.log('[useHomePageLogic] Auth check:', authCheckKey);
-      
-      // Case 1: Wallet connected but not authenticated - sign in
-      if (wallet.connected && wallet.publicKey && authStatus !== "authenticated" && !isWalletSigningIn && !walletSignInAttempted) {
-        console.log('[useHomePageLogic] Starting wallet sign-in...');
-        setIsWalletSigningIn(true);
-        setWalletSignInAttempted(true);
-        
-        try {
-          const result = await signIn('wallet', { 
-            walletAddress: wallet.publicKey.toBase58(), 
-            chain: "solana", 
-            redirect: false,
-            callbackUrl: window.location.pathname
-          });
-          
-          if (result?.error) {
-            console.error('[useHomePageLogic] Sign-in error:', result.error);
-            toast.error(`Authentication failed: ${result.error}`);
-            setWalletSignInAttempted(false);
-          } else if (result?.ok) {
-            console.log('[useHomePageLogic] Sign-in successful');
-            // In production, force a hard reload for session consistency
-            setTimeout(() => {
-              if (typeof window !== 'undefined') {
-                window.location.href = window.location.pathname;
-              }
-            }, 1000); // Longer delay for production
-          }
-        } catch (err) {
-          console.error('[useHomePageLogic] Sign-in exception:', err);
-          toast.error('Failed to authenticate wallet. Please try again.');
-          setWalletSignInAttempted(false);
-        }
-        setIsWalletSigningIn(false);
-        return;
-      }
-
-      // Case 2: Authenticated but wallet not in session - link wallet
-      if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && !session?.user?.walletAddress && !isActivatingRewards) {
-        console.log('[useHomePageLogic] Linking wallet to session...');
-        await handleWalletConnectSuccess();
-        return;
-      }
-
-      // Case 3: Authenticated with wallet in session but rewards not active - activate rewards
-      if (authStatus === "authenticated" && session?.user?.walletAddress && wallet.connected && wallet.publicKey && !isRewardsActive && !isActivatingRewards && !activationAttempted) {
-        console.log('[useHomePageLogic] Activating rewards...');
-        await activateRewardsAndFetchData(
-          wallet.publicKey.toBase58(),
-          session.user.xId || null,
-          session.user.dbId
-        );
-        return;
-      }
-
-      // Case 4: Everything ready, check DeFAI balance if needed
-      if (authStatus === "authenticated" && wallet.connected && wallet.publicKey && isRewardsActive && hasSufficientDefai === null && !isCheckingDefaiBalance) {
-        console.log('[useHomePageLogic] Checking DeFAI balance...');
-        checkDefaiBalance(wallet.publicKey, connection);
-        return;
-      }
-
-      // Case 5: Fetch pending invites for authenticated users with X auth
-      if (authStatus === "authenticated" && wallet.connected && session?.user?.xId && isRewardsActive && !isFetchingInvites && pendingInvites.length === 0) {
-        console.log('[useHomePageLogic] Fetching pending invites...');
-        fetchPendingInvites();
-        return;
-      }
-    };
-
-    // Debounce the auth handler in production
-    const timeoutId = setTimeout(handleWalletAuth, process.env.NODE_ENV === 'production' ? 300 : 0);
-    return () => clearTimeout(timeoutId);
-  }, [
-    isHydrated,
-    authStatus,
-    wallet.connected,
-    wallet.publicKey,
-    session?.user?.walletAddress,
-    session?.user?.xId,
-    session?.user?.dbId,
-    isRewardsActive,
-    isActivatingRewards,
-    activationAttempted,
-    isWalletSigningIn,
-    walletSignInAttempted,
-    hasSufficientDefai,
-    isCheckingDefaiBalance,
-    isFetchingInvites,
-    pendingInvites.length,
-    handleWalletConnectSuccess,
-    activateRewardsAndFetchData,
-    checkDefaiBalance,
-    fetchPendingInvites,
-    connection
-  ]);
-
-  // Reset state when wallet disconnects
-  useEffect(() => {
-    if (!wallet.connected) {
-      setWalletSignInAttempted(false);
-      setPrevWalletAddress(null);
-      setActivationAttempted(false);
-      setIsRewardsActive(false);
-      setOtherUserData({});
-      setMySquadData(null);
-      setUserCheckedNoSquad(false);
-      setHasSufficientDefai(null);
-      setPendingInvites([]);
-      setDefaiBalance(null);
-      lastAuthCheckRef.current = '';
-    }
-  }, [wallet.connected]);
-
-  // Handle wallet address changes
-  useEffect(() => {
-    const currentAddress = wallet.publicKey ? wallet.publicKey.toBase58() : null;
-    if (currentAddress && currentAddress !== prevWalletAddress) {
-      console.log('[useHomePageLogic] Wallet address changed, resetting state');
-      setPrevWalletAddress(currentAddress);
-      setUserCheckedNoSquad(false);
-      setActivationAttempted(false);
-      setIsRewardsActive(false);
-      setOtherUserData({});
-      setMySquadData(null);
-      setHasSufficientDefai(null);
-      setPendingInvites([]);
-      setWalletSignInAttempted(false);
-      lastAuthCheckRef.current = '';
-    }
-  }, [wallet.publicKey, prevWalletAddress]);
-
-  // Initialize URL parameters (only once)
-  useEffect(() => {
-    if (!isInitializedRef.current) return;
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    const refCode = urlParams.get('ref');
-    if (refCode) {
-       localStorage.setItem('referralCode', refCode);
-       setInitialReferrer(refCode);
-    } else {
-       const savedRefCode = localStorage.getItem('referralCode');
-       if (savedRefCode) setInitialReferrer(savedRefCode);
-    }
-    const squadInviteParam = urlParams.get('squadInvite');
-    if (squadInviteParam) {
-      setSquadInviteIdFromUrl(squadInviteParam);
-    }
-  }, [isHydrated]);
-
-  // Fetch user details when authenticated (debounced)
-  useEffect(() => {
-    if (authStatus !== 'authenticated' || userDetailsFetched || !isHydrated) return;
-    
-    const timeoutId = setTimeout(async () => {
-      try {
-        const res = await fetch('/api/users/my-details');
-        const data = await res.json();
-        if (res.ok) {
-          setOtherUserData(prev => ({
-            ...prev,
-            referralCode: data.referralCode ?? prev.referralCode,
-            completedActions: data.completedActions ?? prev.completedActions,
-            xUsername: data.xUsername ?? prev.xUsername,
-            squadId: data.squadId ?? prev.squadId,
-          }));
-          setUserDetailsFetched(true);
-        }
-      } catch (e) {
-        console.warn('[useHomePageLogic] Unable to fetch my-details:', e);
-      }
-    }, 500);
-    
-    return () => clearTimeout(timeoutId);
-  }, [authStatus, userDetailsFetched, isHydrated]);
-
-  // Check environment variables (debounced)
-  useEffect(() => {
-    if (!isHydrated) return;
-    
-    const timeoutId = setTimeout(() => {
-      if (envVars && !isEnvLoading) {
-        try {
-          checkRequiredEnvVars(envVars);
-        } catch (e) {
-          console.warn('[useHomePageLogic] Environment variable check failed:', e);
-        }
-      } else if (envError) {
-        console.error('[useHomePageLogic] Failed to load environment variables:', envError);
-      }
-    }, 1000);
-    
-    return () => clearTimeout(timeoutId);
-  }, [envVars, isEnvLoading, envError, isHydrated]);
-
-  // Initialize desktop detection
-  useEffect(() => {
-    if (!isHydrated) return;
-    
-    const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024);
-    checkDesktop();
-    window.addEventListener('resize', checkDesktop);
-    return () => window.removeEventListener('resize', checkDesktop);
-  }, [isHydrated]);
-
-  // Fetch total community points (debounced)
-  useEffect(() => {
-    if (!isHydrated) return;
-    
-    const timeoutId = setTimeout(() => {
-      fetch('/api/stats/total-points')
-        .then(async res => {
-          if (!res.ok) throw new Error('Network error fetching total points');
-          return res.json();
-        })
-        .then(data => {
-          if (data.totalCommunityPoints !== undefined && data.totalCommunityPoints !== null) {
-            setTotalCommunityPoints(data.totalCommunityPoints);
-          } else {
-            setTotalCommunityPoints(0);
-          }
-        })
-        .catch(err => {
-          console.error("Failed to fetch total community points for dashboard", err);
-          setTotalCommunityPoints(0);
-        });
-    }, 1500);
-    
-    return () => clearTimeout(timeoutId);
-  }, [isHydrated]);
-
   const handleFullLogout = useCallback(async () => {
     toast.info("Signing out and disconnecting wallet...");
     if (wallet.connected) {
@@ -624,66 +605,89 @@ export function useHomePageLogic() {
     }
   }, [wallet]);
 
-  // Auto-prompt wallet modal after authentication (debounced)
-  useEffect(() => {
-    if (!isHydrated) return;
-    
-    const timeoutId = setTimeout(() => {
-      const wasLoggingOut = sessionStorage.getItem('logoutInProgress') === 'true';
-      if (wasLoggingOut) {
-        sessionStorage.removeItem('logoutInProgress');
-        if (typeof setWalletModalVisible === 'function') { 
-          setWalletModalVisible(false); 
-        }
-        walletPromptedRef.current = true; 
-        return; 
-      }
-      
-      if (authStatus === "authenticated" && !wallet.connected && !wallet.connecting && !walletPromptedRef.current) {
-        walletPromptedRef.current = true;
-        if (typeof setWalletModalVisible === 'function') { 
-          setTimeout(() => setWalletModalVisible(true), 100); 
-        }
-      }
-      
-      if (wallet.connected) {
-        walletPromptedRef.current = false;
-      } else if (authStatus === "unauthenticated" && !wasLoggingOut) { 
-        walletPromptedRef.current = false;
-      }
-    }, 200);
-    
-    return () => clearTimeout(timeoutId);
-  }, [authStatus, wallet.connected, wallet.connecting, setWalletModalVisible, isHydrated]);
+  // NOW THAT ALL HOOKS ARE CALLED, WE CAN HANDLE CONDITIONAL LOGIC
+  
+  // Debug logging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[useHomePageLogic] Current state:', {
+      authStatus,
+      sessionUser: session?.user,
+      walletConnected: wallet.connected,
+      walletAddress: wallet.publicKey?.toBase58(),
+      sessionWalletAddress: session?.user?.walletAddress
+    });
+  }
 
-  // Periodic points polling for active users (reduced frequency in production)
-  useEffect(() => {
-    if (!isHydrated) return;
-    
-    let intervalId: any;
-    if (authStatus === 'authenticated' && isRewardsActive) {
-      const fetchLatestPoints = async () => {
-        try {
-          const res = await fetch('/api/users/my-details');
-          const data = await res.json();
-          if (res.ok && typeof data.points === 'number') {
-            setOtherUserData(prev => ({ ...prev, points: data.points }));
-          }
-        } catch (e) {
-          console.warn('[useHomePageLogic] points polling failed', e);
-        }
-      };
-      
-      // Initial fetch after delay
-      setTimeout(fetchLatestPoints, 2000);
-      // Longer polling interval in production
-      const pollingInterval = process.env.NODE_ENV === 'production' ? 60000 : 30000;
-      intervalId = setInterval(fetchLatestPoints, pollingInterval);
+  // Fallback for production if env API fails
+  const getEnvVarWithFallback = (key: string) => {
+    if (envVars && envVars[key]) {
+      return envVars[key];
     }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
+    // Use process.env directly as fallback
+    if (typeof window !== 'undefined' && (window as any)[key]) {
+      return (window as any)[key];
+    }
+    return process.env[key];
+  };
+
+  const combinedUserData = {
+    ...otherUserData,
+    points: userAirdrop.points,
+    initialAirdropAmount: userAirdrop.initialDefai,
+  };
+
+  // Handle throttling with minimal state return
+  if (shouldThrottle) {
+    return {
+      session: null,
+      authStatus: 'loading',
+      wallet,
+      connection,
+      userAirdropData: { points: null, initialDefai: null, totalDefai: null, isLoading: true },
+      userData: {},
+      typedAddress: '',
+      setTypedAddress: () => {},
+      airdropCheckResultForTyped: null,
+      setAirdropCheckResult: () => {},
+      isCheckingAirdrop: false,
+      setIsCheckingAirdrop: () => {},
+      isRewardsActive: false,
+      isActivatingRewards: false,
+      setOtherUserData: () => {},
+      mySquadData: null,
+      isFetchingSquad: false,
+      userCheckedNoSquad: false,
+      initialReferrer: null,
+      pendingInvites: [],
+      isFetchingInvites: false,
+      isProcessingInvite: null,
+      setIsProcessingInvite: () => {},
+      squadInviteIdFromUrl: null,
+      setSquadInviteIdFromUrl: () => {},
+      currentTotalAirdropForSharing: 0,
+      setCurrentTotalAirdropForSharing: () => {},
+      isCheckingDefaiBalance: false,
+      hasSufficientDefai: null,
+      setHasSufficientDefai: () => {},
+      showWelcomeModal: false,
+      setShowWelcomeModal: () => {},
+      isProcessingLinkInvite: false,
+      setIsProcessingLinkInvite: () => {},
+      activationAttempted: false,
+      isDesktop: false,
+      setIsDesktop: () => {},
+      totalCommunityPoints: null,
+      setTotalCommunityPoints: () => {},
+      defaiBalance: null,
+      setDefaiBalance: () => {},
+      handleWalletConnectSuccess: () => {},
+      fetchMySquadData: () => {},
+      fetchPendingInvites: () => {},
+      checkDefaiBalance: () => {},
+      activateRewardsAndFetchData: () => {},
+      handleFullLogout: () => {},
     };
-  }, [authStatus, isRewardsActive, isHydrated]);
+  }
 
   // Production safety: Don't return data until hydrated
   if (!isHydrated) {
