@@ -10,6 +10,7 @@ export async function middleware(request: NextRequest) {
   // Public paths
   const publicPaths = [
     '/leaderboard',
+    '/check', // Add the check route
   ]
 
   // Allow public routes and Next.js internals
@@ -19,6 +20,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/stats') || // Public statistics endpoints
     pathname.startsWith('/api/users/points') || // Public endpoint to fetch points for any wallet
+    pathname.startsWith('/api/check-wallet-airdrop') || // Public airdrop checker endpoint
     pathname.includes('.') // static files
   ) {
     return NextResponse.next()
