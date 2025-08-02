@@ -21,6 +21,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/stats') || // Public statistics endpoints
     pathname.startsWith('/api/users/points') || // Public endpoint to fetch points for any wallet
     pathname.startsWith('/api/check-wallet-airdrop') || // Public airdrop checker endpoint
+    pathname.startsWith('/api/check-may20-holders') || // Public May 20 holders checker endpoint
+    pathname.startsWith('/api/check-march31-holders') || // Public March 31 holders checker endpoint
     pathname.includes('.') // static files
   ) {
     return NextResponse.next()

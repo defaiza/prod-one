@@ -1,12 +1,9 @@
-import { ThemeProviderWrapper } from "@/providers/themeProvider";
-import { WalletAdapterProvider } from "@/providers/walletAdapterProvider";
 import type { Metadata } from "next";
 import { Inter, Orbitron } from "next/font/google";
 import "./globals.css";
-import { UmiProvider } from "@/providers/umiProvider";
 import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
-import SessionProviderWrapper from "@/providers/sessionProviderWrapper";
+import ConditionalWalletProviders from "@/components/ConditionalWalletProviders";
 import ConditionalAppHeader from "@/components/layout/ConditionalAppHeader";
 import AgentSetupModal from "@/components/modals/AgentSetupModal";
 // import CrossmintProviders from "@/providers/CrossmintProviders"; // Now scoped to Yield page
@@ -51,23 +48,15 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${orbitron.variable}`} suppressHydrationWarning>
       <head />
       <body className="flex flex-col min-h-screen bg-background text-foreground">
-        {/* <CrossmintProviders> */}
-        <SessionProviderWrapper>
-          <WalletAdapterProvider>
-            <UmiProvider>
-              <ThemeProviderWrapper>
-                <ConditionalAppHeader />
-                <main className="flex-grow container mx-auto px-4 py-8">
-                  {children}
-                </main>
-                <ShadcnToaster />
-                <SonnerToaster richColors position="bottom-right" />
-                <AgentSetupModal />
-              </ThemeProviderWrapper>
-            </UmiProvider>
-          </WalletAdapterProvider>
-        </SessionProviderWrapper>
-        {/* </CrossmintProviders> */}
+        <ConditionalWalletProviders>
+          <ConditionalAppHeader />
+          <main className="flex-grow container mx-auto px-4 py-8">
+            {children}
+          </main>
+          <ShadcnToaster />
+          <SonnerToaster richColors position="bottom-right" />
+          <AgentSetupModal />
+        </ConditionalWalletProviders>
       </body>
     </html>
   );

@@ -8,8 +8,8 @@ export default function ConditionalAppHeader() {
   const { status } = useSession();
   const pathname = usePathname();
 
-  // Hide header only on home page ("/") when the user is NOT authenticated
-  const hideHeader = pathname === '/' && status !== 'authenticated';
+  // Hide header on home page ("/") when user is NOT authenticated AND on check page
+  const hideHeader = (pathname === '/' && status !== 'authenticated') || pathname === '/check';
 
   if (hideHeader) {
     return null;
