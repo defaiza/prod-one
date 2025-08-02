@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 
+// Force dynamic rendering since this page makes API calls
+export const dynamic = 'force-dynamic';
+
 type CheckerType = 'original' | 'may20' | 'march31';
 
 interface CheckResult {

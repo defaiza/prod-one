@@ -5,11 +5,20 @@ import { usePathname } from 'next/navigation';
 import AppHeader from './AppHeader';
 
 export default function ConditionalAppHeader() {
-  const { status } = useSession();
   const pathname = usePathname();
+  // Always call useSession - it will return undefined if there's no provider
+  const sessionResult = useSession();
+  
+  // Hide header on check page
+  if (pathname === '/check') {
+    return null;
+  }
 
-  // Hide header on home page ("/") when user is NOT authenticated AND on check page
-  const hideHeader = (pathname === '/' && status !== 'authenticated') || pathname === '/check';
+  // Get status, defaulting to 'unauthenticated' if session is undefined
+  const status = sessionResult?.status || 'unauthenticated';
+
+  // Hide header on home page ("/") when user is NOT authenticated
+  const hideHeader = pathname === '/' && status !== 'authenticated';
 
   if (hideHeader) {
     return null;

@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase, UserDocument } from '@/lib/mongodb';
 import { NextRequest } from 'next/server';
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 // const LEADERBOARD_LIMIT = 20; // Default limit, can be overridden by query param
 
 export async function GET(request: NextRequest) {

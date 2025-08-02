@@ -6,6 +6,9 @@ import { redisService } from '@/services/redis.service';
 import { redisConfig } from '@/config/redis.config';
 import { Types } from 'mongoose';
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 // Define an interface based on the lean Mongoose document and expected fields
 // This should align with your communityQuestSchema and what you return to the client
 interface ICommunityQuest {

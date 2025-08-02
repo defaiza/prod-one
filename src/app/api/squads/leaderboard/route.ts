@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase, SquadDocument } from '@/lib/mongodb';
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 // Default limit used when caller does not specify one.
 // A value of 0 or the string "all" means "no limit" (return all squads).
 const DEFAULT_LIMIT = 50;

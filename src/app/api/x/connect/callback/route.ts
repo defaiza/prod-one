@@ -6,6 +6,9 @@ import { encrypt } from '@/lib/encryption';
 import { cookies } from 'next/headers';
 import { ObjectId } from 'mongodb';
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 const X_CLIENT_ID = process.env.X_CLIENT_ID;
 const X_CLIENT_SECRET = process.env.X_CLIENT_SECRET;
 const X_CALLBACK_URL = process.env.X_CALLBACK_URL;

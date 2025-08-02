@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force dynamic rendering for this API route since it uses request headers
+export const dynamic = 'force-dynamic';
+
 // Explicit allowlist of variables that are safe to expose
 const ALLOWED_ENV_VARS = [
   'NEXT_PUBLIC_SOLANA_RPC_URL',
